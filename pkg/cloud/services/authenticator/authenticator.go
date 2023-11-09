@@ -18,7 +18,6 @@ package authenticator
 
 import (
 	"fmt"
-
 	"github.com/IBM/go-sdk-core/v5/core"
 )
 
