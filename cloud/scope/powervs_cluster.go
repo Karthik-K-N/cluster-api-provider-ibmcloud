@@ -20,22 +20,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/IBM-Cloud/power-go-client/ibmpisession"
+	"github.com/IBM-Cloud/power-go-client/power/models"
+	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/ibm-cos-sdk-go/aws/awserr"
 	"github.com/IBM/ibm-cos-sdk-go/service/s3"
+	tgapiv1 "github.com/IBM/networking-go-sdk/transitgatewayapisv1"
+	"github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
+	"github.com/IBM/platform-services-go-sdk/resourcemanagerv2"
+	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/go-logr/logr"
 	"k8s.io/klog/v2/klogr"
 	"os"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/cos"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/globalcatalog"
-	"strings"
-
-	"github.com/IBM-Cloud/power-go-client/ibmpisession"
-	"github.com/IBM-Cloud/power-go-client/power/models"
-	"github.com/IBM/go-sdk-core/v5/core"
-	tgapiv1 "github.com/IBM/networking-go-sdk/transitgatewayapisv1"
-	"github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
-	"github.com/IBM/platform-services-go-sdk/resourcemanagerv2"
-	"github.com/IBM/vpc-go-sdk/vpcv1"
 
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,7 +59,9 @@ const (
 	// PowerVS service and plan name
 	powerVSService     = "power-iaas"
 	powerVSServicePlan = "power-virtual-server-group"
-	APIKEY             = ""
+
+	//TODO: Remove this
+	APIKEY = ""
 )
 
 const (
@@ -92,6 +92,8 @@ var (
 	ServiceInstance = ResourceType("serviceInstance")
 	// Network is Power VS network resource.
 	Network = ResourceType("network")
+	// DHCPServer is Power VS DHCP server.
+	DHCPServer = ResourceType("dhcpServer")
 	// LoadBalancer VPC loadBalancer resource.
 	LoadBalancer = ResourceType("loadBalancer")
 	// TransitGateway is transit gateway resource.
@@ -100,6 +102,8 @@ var (
 	VPC = ResourceType("vpc")
 	// Subnet VPC subnet resource.
 	Subnet = ResourceType("subnet")
+	// COSInstance is IBM COS instance resource.
+	COSInstance = ResourceType("cosInstance")
 )
 
 // PowerVSClusterScopeParams defines the input parameters used to create a new PowerVSClusterScope.
@@ -251,14 +255,6 @@ func (s *PowerVSClusterScope) Zone() *string {
 	return s.IBMPowerVSCluster.Spec.Zone
 }
 
-// VPCZone returns the cluster VPC zone.
-func (s *PowerVSClusterScope) VPCZone() *string {
-	if s.IBMPowerVSCluster.Spec.VPC == nil || s.IBMPowerVSCluster.Spec.VPC.Zone == nil {
-		return nil
-	}
-	return s.IBMPowerVSCluster.Spec.VPC.Zone
-}
-
 // ResourceGroup returns the cluster resource group.
 func (s *PowerVSClusterScope) ResourceGroup() *string {
 	return s.IBMPowerVSCluster.Spec.ResourceGroup
@@ -282,9 +278,14 @@ func (s *PowerVSClusterScope) ServiceInstance() *infrav1beta2.IBMPowerVSResource
 	return s.IBMPowerVSCluster.Spec.ServiceInstance
 }
 
-// SetServiceInstanceID set the service instance id.
-func (s *PowerVSClusterScope) SetServiceInstanceID(serviceInstanceID string) {
-	s.IBMPowerVSCluster.Status.ServiceInstanceID = &serviceInstanceID
+//TODO(): Can we use generic to set status
+
+// SetServiceInstanceStatus set the service instance status.
+func (s *PowerVSClusterScope) SetServiceInstanceStatus(resource infrav1beta2.ResourceReference) {
+	if s.IBMPowerVSCluster.Status.ServiceInstance == nil {
+		s.IBMPowerVSCluster.Status.ServiceInstance = &resource
+	}
+	s.IBMPowerVSCluster.Status.ServiceInstance.Set(resource)
 }
 
 // GetServiceInstanceID get the service instance id.
@@ -292,10 +293,39 @@ func (s *PowerVSClusterScope) GetServiceInstanceID() string {
 	if s.IBMPowerVSCluster.Spec.ServiceInstance != nil && s.IBMPowerVSCluster.Spec.ServiceInstance.ID != nil {
 		return *s.IBMPowerVSCluster.Spec.ServiceInstance.ID
 	}
-	if s.IBMPowerVSCluster.Status.ServiceInstanceID != nil {
-		return *s.IBMPowerVSCluster.Status.ServiceInstanceID
+	if s.IBMPowerVSCluster.Status.ServiceInstance != nil && s.IBMPowerVSCluster.Status.ServiceInstance.ID != nil {
+		return *s.IBMPowerVSCluster.Status.ServiceInstance.ID
 	}
 	return ""
+}
+
+// TODO: Can we use generic here
+
+// SetStatus set the IBMPowerVSCluster status.
+func (s *PowerVSClusterScope) SetStatus(resourceType ResourceType, resource infrav1beta2.ResourceReference) {
+	switch resourceType {
+	case ServiceInstance:
+		if s.IBMPowerVSCluster.Status.ServiceInstance == nil {
+			s.IBMPowerVSCluster.Status.ServiceInstance = &resource
+			return
+		}
+		s.IBMPowerVSCluster.Status.ServiceInstance.Set(resource)
+	case Network:
+		if s.IBMPowerVSCluster.Status.Network == nil {
+			s.IBMPowerVSCluster.Status.Network = &resource
+			return
+		}
+		s.IBMPowerVSCluster.Status.Network.Set(resource)
+	case LoadBalancer:
+
+	case Subnet:
+
+	case VPC:
+
+	case TransitGateway:
+
+	}
+
 }
 
 // Network returns the cluster Network.
@@ -303,19 +333,20 @@ func (s *PowerVSClusterScope) Network() infrav1beta2.IBMPowerVSResourceReference
 	return s.IBMPowerVSCluster.Spec.Network
 }
 
-// SetNetworkID set the network id.
-func (s *PowerVSClusterScope) SetNetworkID(networkID string) {
-	s.IBMPowerVSCluster.Status.NetworkID = &networkID
-}
-
-// SetDHCPServerID set the DHCP id.
-func (s *PowerVSClusterScope) SetDHCPServerID(dhcpServerID *string) {
-	s.IBMPowerVSCluster.Status.DHCPServerID = dhcpServerID
+// SetNetworkStatus set the network status.
+func (s *PowerVSClusterScope) SetNetworkStatus(resource infrav1beta2.ResourceReference) {
+	if s.IBMPowerVSCluster.Status.Network == nil {
+		s.IBMPowerVSCluster.Status.Network = &resource
+	}
+	s.IBMPowerVSCluster.Status.Network.Set(resource)
 }
 
 // GetDHCPServerID returns the DHCP id.
 func (s *PowerVSClusterScope) GetDHCPServerID() *string {
-	return s.IBMPowerVSCluster.Status.DHCPServerID
+	if s.IBMPowerVSCluster.Status.DHCPServer != nil {
+		return s.IBMPowerVSCluster.Status.DHCPServer.ID
+	}
+	return nil
 }
 
 // VPC returns the cluster VPC information.
@@ -323,41 +354,52 @@ func (s *PowerVSClusterScope) VPC() *infrav1beta2.VPCResourceReference {
 	return s.IBMPowerVSCluster.Spec.VPC
 }
 
-// SetVPCID set the network id.
-func (s *PowerVSClusterScope) SetVPCID(vpcID string) {
-	s.IBMPowerVSCluster.Status.VPCID = &vpcID
-}
-
 // GetVPCID returns the VPC id.
 func (s *PowerVSClusterScope) GetVPCID() *string {
 	if s.IBMPowerVSCluster.Spec.VPC != nil && s.IBMPowerVSCluster.Spec.VPC.ID != nil {
 		return s.IBMPowerVSCluster.Spec.VPC.ID
 	}
-	if s.IBMPowerVSCluster.Status.VPCID != nil {
-		return s.IBMPowerVSCluster.Status.VPCID
+	if s.IBMPowerVSCluster.Status.VPC != nil {
+		return s.IBMPowerVSCluster.Status.VPC.ID
 	}
 	return nil
 }
 
 // VPCSubnet returns the cluster VPC subnet information.
 func (s *PowerVSClusterScope) VPCSubnet() *infrav1beta2.Subnet {
-	return s.IBMPowerVSCluster.Spec.VPCSubnet
+	//TODO: Handle other cases
+	if len(s.IBMPowerVSCluster.Spec.VPCSubnets) > 1 {
+		return &s.IBMPowerVSCluster.Spec.VPCSubnets[0]
+	}
+	return nil
 }
 
 // GetVPCSubnetID returns the VPC subnet id.
-func (s *PowerVSClusterScope) GetVPCSubnetID() *string {
-	if s.IBMPowerVSCluster.Spec.VPCSubnet != nil && s.IBMPowerVSCluster.Spec.VPCSubnet.ID != nil {
-		return s.IBMPowerVSCluster.Spec.VPCSubnet.ID
+func (s *PowerVSClusterScope) GetVPCSubnetID(name string) *string {
+	if len(s.IBMPowerVSCluster.Spec.VPCSubnets) > 1 {
+		if s.IBMPowerVSCluster.Spec.VPCSubnets[0].ID != nil {
+			return s.IBMPowerVSCluster.Spec.VPCSubnets[0].ID
+		}
 	}
-	if s.IBMPowerVSCluster.Status.VPCSubnetID != nil {
-		return s.IBMPowerVSCluster.Status.VPCSubnetID
+	if s.IBMPowerVSCluster.Status.VPCSubnet == nil {
+		return nil
+	}
+	if val, ok := s.IBMPowerVSCluster.Status.VPCSubnet[name]; ok {
+		return val.ID
 	}
 	return nil
 }
 
 // SetVPCSubnetID set the VPC subnet id.
-func (s *PowerVSClusterScope) SetVPCSubnetID(subnetID string) {
-	s.IBMPowerVSCluster.Status.VPCSubnetID = &subnetID
+func (s *PowerVSClusterScope) SetVPCSubnetID(name string, resource infrav1beta2.ResourceReference) {
+	if s.IBMPowerVSCluster.Status.VPCSubnet == nil {
+		s.IBMPowerVSCluster.Status.VPCSubnet = make(map[string]infrav1beta2.ResourceReference)
+	}
+	controllerCreated := s.IBMPowerVSCluster.Status.VPCSubnet[name].ControllerCreated
+	if controllerCreated != nil && *controllerCreated {
+		resource.ControllerCreated = controllerCreated
+	}
+	s.IBMPowerVSCluster.Status.VPCSubnet[name] = resource
 }
 
 // TransitGateway returns the cluster Transit Gateway information.
@@ -365,53 +407,85 @@ func (s *PowerVSClusterScope) TransitGateway() *infrav1beta2.TransitGateway {
 	return s.IBMPowerVSCluster.Spec.TransitGateway
 }
 
-// SetTransitGatewayID set the transit gateway id.
-func (s *PowerVSClusterScope) SetTransitGatewayID(tgID string) {
-	s.IBMPowerVSCluster.Status.TransitGatewayID = &tgID
-}
-
 // GetTransitGatewayID returns the transit gateway id.
 func (s *PowerVSClusterScope) GetTransitGatewayID() *string {
 	if s.IBMPowerVSCluster.Spec.TransitGateway != nil && s.IBMPowerVSCluster.Spec.TransitGateway.ID != nil {
 		return s.IBMPowerVSCluster.Spec.TransitGateway.ID
 	}
-	if s.IBMPowerVSCluster.Status.TransitGatewayID != nil {
-		return s.IBMPowerVSCluster.Status.TransitGatewayID
+	if s.IBMPowerVSCluster.Status.TransitGateway != nil {
+		return s.IBMPowerVSCluster.Status.TransitGateway.ID
 	}
 	return nil
 }
 
 // LoadBalancer returns the cluster loadBalancer information.
 func (s *PowerVSClusterScope) LoadBalancer() *infrav1beta2.VPCLoadBalancerSpec {
-	return s.IBMPowerVSCluster.Spec.ControlPlaneLoadBalancer
+	//TODO: Handle other cases
+	if len(s.IBMPowerVSCluster.Spec.LoadBalancers) > 1 {
+		return &s.IBMPowerVSCluster.Spec.LoadBalancers[0]
+	}
+	return nil
 }
 
 // SetLoadBalancerStatus set the loadBalancer id.
-func (s *PowerVSClusterScope) SetLoadBalancerStatus(loadBalancer *infrav1beta2.VPCLoadBalancerStatus) {
-	s.IBMPowerVSCluster.Status.ControlPlaneLoadBalancer = loadBalancer
+func (s *PowerVSClusterScope) SetLoadBalancerStatus(name string, loadBalancer infrav1beta2.VPCLoadBalancerStatus) {
+	if s.IBMPowerVSCluster.Status.LoadBalancers == nil {
+		s.IBMPowerVSCluster.Status.LoadBalancers = make(map[string]infrav1beta2.VPCLoadBalancerStatus)
+	}
+	controllerCreated := s.IBMPowerVSCluster.Status.LoadBalancers[name].ControllerCreated
+	if controllerCreated != nil && *controllerCreated {
+		loadBalancer.ControllerCreated = controllerCreated
+	}
+	s.IBMPowerVSCluster.Status.LoadBalancers[name] = loadBalancer
 }
 
 // GetLoadBalancerID returns the loadBalancer.
-func (s *PowerVSClusterScope) GetLoadBalancerID() *string {
-	if s.IBMPowerVSCluster.Status.ControlPlaneLoadBalancer != nil && s.IBMPowerVSCluster.Status.ControlPlaneLoadBalancer.ID != nil {
-		return s.IBMPowerVSCluster.Status.ControlPlaneLoadBalancer.ID
+func (s *PowerVSClusterScope) GetLoadBalancerID(name string) *string {
+	if s.IBMPowerVSCluster.Status.LoadBalancers == nil {
+		return nil
+	}
+	if val, ok := s.IBMPowerVSCluster.Status.LoadBalancers[name]; ok {
+		return val.ID
 	}
 	return nil
 }
 
 // GetLoadBalancerState will get the state for the load balancer.
-func (s *PowerVSClusterScope) GetLoadBalancerState() *infrav1beta2.VPCLoadBalancerState {
-	return s.IBMPowerVSCluster.Status.ControlPlaneLoadBalancer.State
+func (s *PowerVSClusterScope) GetLoadBalancerState(name string) *infrav1beta2.VPCLoadBalancerState {
+	if s.IBMPowerVSCluster.Status.LoadBalancers == nil {
+		return nil
+	}
+	if val, ok := s.IBMPowerVSCluster.Status.LoadBalancers[name]; ok {
+		return &val.State
+	}
+	return nil
 }
 
 // GetLoadBalancerHost will return the hostname of load balancer.
-func (s *PowerVSClusterScope) GetLoadBalancerHost() *string {
-	return s.IBMPowerVSCluster.Status.ControlPlaneLoadBalancer.Hostname
+func (s *PowerVSClusterScope) GetLoadBalancerHost(name string) *string {
+	if s.IBMPowerVSCluster.Status.LoadBalancers == nil {
+		return nil
+	}
+	if val, ok := s.IBMPowerVSCluster.Status.LoadBalancers[name]; ok {
+		return val.Hostname
+	}
+	return nil
 }
 
 // SetCOSBucketStatus set the COS bucket id.
-func (s *PowerVSClusterScope) SetCOSBucketStatus(cosBucketID string) {
-	s.IBMPowerVSCluster.Status.COSBucketID = &cosBucketID
+func (s *PowerVSClusterScope) SetCOSBucketStatus(cosInstanceID string, controllerCreated bool) {
+	if s.IBMPowerVSCluster.Status.COSInstance == nil {
+		s.IBMPowerVSCluster.Status.COSInstance = &infrav1beta2.ResourceReference{
+			ID:                &cosInstanceID,
+			ControllerCreated: &controllerCreated,
+		}
+	} else {
+		// set the controllerCreated only if its not set
+		if !*s.IBMPowerVSCluster.Status.COSInstance.ControllerCreated {
+			s.IBMPowerVSCluster.Status.COSInstance.ControllerCreated = &controllerCreated
+		}
+		s.IBMPowerVSCluster.Status.COSInstance.ID = &cosInstanceID
+	}
 }
 
 // ReconcileServiceInstance reconciles service instance.
@@ -442,7 +516,7 @@ func (s *PowerVSClusterScope) ReconcileServiceInstance() error {
 	}
 	if serviceInstanceID != "" {
 		s.Info("Found service instance", "id", serviceInstanceID)
-		s.SetServiceInstanceID(serviceInstanceID)
+		s.SetStatus(ServiceInstance, infrav1beta2.ResourceReference{ID: &serviceInstanceID, ControllerCreated: pointer.Bool(false)})
 		return nil
 	}
 
@@ -452,23 +526,23 @@ func (s *PowerVSClusterScope) ReconcileServiceInstance() error {
 	if err != nil {
 		return err
 	}
-	s.SetServiceInstanceID(*serviceInstance.GUID)
+	s.SetStatus(ServiceInstance, infrav1beta2.ResourceReference{ID: serviceInstance.GUID, ControllerCreated: pointer.Bool(true)})
 	return nil
 }
 
 // checkServiceInstance checks service instance exist in cloud.
 func (s *PowerVSClusterScope) checkServiceInstance() (string, error) {
 	// TODO(Karthik-k-n) support ID and Regex
-	serviceInstance, err := s.ResourceClient.GetServiceInstanceByName(*s.getServiceName("serviceInstance"))
+	serviceInstance, err := s.ResourceClient.GetServiceInstanceByName(*s.GetServiceName("serviceInstance"))
 	if err != nil {
 		return "", err
 	}
 	if serviceInstance == nil {
-		s.Info("Not able to find service instance", "name", *s.getServiceName("serviceInstance"))
+		s.Info("Not able to find service instance", "name", *s.GetServiceName("serviceInstance"))
 		return "", nil
 	}
 	if *serviceInstance.State != "active" {
-		s.Info("service instance not in active state", "name", *s.getServiceName("serviceInstance"), "statue", *serviceInstance.State)
+		s.Info("service instance not in active state", "name", *s.GetServiceName("serviceInstance"), "statue", *serviceInstance.State)
 		return "", fmt.Errorf("service instance not in active state, current state: %s", *serviceInstance.State)
 	}
 	return *serviceInstance.GUID, nil
@@ -488,7 +562,7 @@ func (s *PowerVSClusterScope) createServiceInstance() (*resourcecontrollerv2.Res
 
 	// create service instance
 	serviceInstance, _, err := s.ResourceClient.CreateResourceInstance(&resourcecontrollerv2.CreateResourceInstanceOptions{
-		Name:           s.getServiceName("serviceInstance"),
+		Name:           s.GetServiceName("serviceInstance"),
 		Target:         s.Zone(),
 		ResourceGroup:  &resourceGroupID,
 		ResourcePlanID: &servicePlanID,
@@ -503,7 +577,7 @@ func (s *PowerVSClusterScope) createServiceInstance() (*resourcecontrollerv2.Res
 func (s *PowerVSClusterScope) ReconcileNetwork() error {
 	// if DHCP server id is set means the server is already created
 	if s.GetDHCPServerID() != nil {
-		err := s.checkDHCPServerStatus()
+		_, err := s.checkDHCPServerStatus()
 		if err != nil {
 			return err
 		}
@@ -515,7 +589,7 @@ func (s *PowerVSClusterScope) ReconcileNetwork() error {
 		return err
 	}
 	if networkID != "" {
-		s.SetNetworkID(networkID)
+		s.SetStatus(Network, infrav1beta2.ResourceReference{ID: &networkID, ControllerCreated: pointer.Bool(false)})
 		return nil
 	}
 
@@ -525,13 +599,16 @@ func (s *PowerVSClusterScope) ReconcileNetwork() error {
 		return err
 	}
 	if dhcpServer != nil {
-		s.SetDHCPServerID(dhcpServer)
+		s.SetStatus(DHCPServer, infrav1beta2.ResourceReference{ID: dhcpServer, ControllerCreated: pointer.Bool(true)})
 		return nil
 	}
 
-	err = s.checkDHCPServerStatus()
+	dhcpServerDetails, err := s.checkDHCPServerStatus()
 	if err != nil {
 		return err
+	}
+	if dhcpServerDetails.Network != nil && dhcpServerDetails.Network.ID != nil {
+		s.SetStatus(Network, infrav1beta2.ResourceReference{ID: dhcpServerDetails.Network.ID, ControllerCreated: pointer.Bool(true)})
 	}
 	return nil
 }
@@ -539,12 +616,12 @@ func (s *PowerVSClusterScope) ReconcileNetwork() error {
 // checkNetwork checks the network exist in cloud.
 func (s *PowerVSClusterScope) checkNetwork() (string, error) {
 	// TODO(Karthik-k-n) support ID and Regex
-	network, err := s.IBMPowerVSClient.GetNetworkByName(*s.getServiceName("network"))
+	network, err := s.IBMPowerVSClient.GetNetworkByName(*s.GetServiceName("network"))
 	if err != nil {
 		return "", err
 	}
 	if network == nil {
-		s.Info("Not able to find network", "name", *s.getServiceName("network"))
+		s.Info("Not able to find network", "name", *s.GetServiceName("network"))
 		return "", nil
 	}
 	s.Info("Network found", "id", *network.NetworkID)
@@ -552,29 +629,26 @@ func (s *PowerVSClusterScope) checkNetwork() (string, error) {
 }
 
 // checkDHCPServerStatus checks the DHCP server status.
-func (s *PowerVSClusterScope) checkDHCPServerStatus() error {
+func (s *PowerVSClusterScope) checkDHCPServerStatus() (*models.DHCPServerDetail, error) {
 	dhcpID := *s.GetDHCPServerID()
 	dhcpServer, err := s.IBMPowerVSClient.GetDHCPServer(dhcpID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if dhcpServer == nil {
-		return fmt.Errorf("error failed to get dchp server")
+		return nil, fmt.Errorf("error failed to get dchp server")
 	}
 	if *dhcpServer.Status != "ACTIVE" {
-		return fmt.Errorf("error dhcp server state is not active, current state %s", *dhcpServer.Status)
+		return nil, fmt.Errorf("error dhcp server state is not active, current state %s", *dhcpServer.Status)
 	}
-	if dhcpServer.Network != nil && dhcpServer.Network.ID != nil {
-		s.SetNetworkID(*dhcpServer.Network.ID)
-	}
-	return nil
+	return dhcpServer, nil
 }
 
 // createDHCPServer creates the DHCP server.
 func (s *PowerVSClusterScope) createDHCPServer() (*string, error) {
 	dhcpServer, err := s.IBMPowerVSClient.CreateDHCPServer(&models.DHCPServerCreate{
 		DNSServer: pointer.String("1.1.1.1"),
-		Name:      s.getServiceName("dhcp"),
+		Name:      s.GetServiceName("dhcp"),
 	})
 	if err != nil {
 		return nil, err
@@ -607,7 +681,7 @@ func (s *PowerVSClusterScope) ReconcileVPC() error {
 		return err
 	}
 	if vpcID != "" {
-		s.SetVPCID(vpcID)
+		s.SetStatus(VPC, infrav1beta2.ResourceReference{ID: &vpcID, ControllerCreated: pointer.Bool(false)})
 		return nil
 	}
 
@@ -618,13 +692,13 @@ func (s *PowerVSClusterScope) ReconcileVPC() error {
 	if err != nil {
 		return err
 	}
-	s.SetVPCID(*vpcDetails)
+	s.SetStatus(VPC, infrav1beta2.ResourceReference{ID: vpcDetails, ControllerCreated: pointer.Bool(true)})
 	return nil
 }
 
 // checkVPC checks VPC exist in cloud.
 func (s *PowerVSClusterScope) checkVPC() (string, error) {
-	vpc, err := s.IBMVPCClient.GetVPCByName(*s.getServiceName("vpc"))
+	vpc, err := s.IBMVPCClient.GetVPCByName(*s.GetServiceName("vpc"))
 	if err != nil {
 		return "", err
 	}
@@ -643,7 +717,7 @@ func (s *PowerVSClusterScope) createVPC() (*string, error) {
 	addressPrefixManagement := "auto"
 	vpcOption := &vpcv1.CreateVPCOptions{
 		ResourceGroup:           &vpcv1.ResourceGroupIdentity{ID: &resourceGroupID},
-		Name:                    s.getServiceName("vpc"),
+		Name:                    s.GetServiceName("vpc"),
 		AddressPrefixManagement: &addressPrefixManagement,
 	}
 	vpcDetails, _, err := s.IBMVPCClient.CreateVPC(vpcOption)
@@ -670,9 +744,14 @@ func (s *PowerVSClusterScope) createVPC() (*string, error) {
 
 // ReconcileVPCSubnet reconciles VPC subnet.
 func (s *PowerVSClusterScope) ReconcileVPCSubnet() error {
-	if s.GetVPCSubnetID() != nil {
+	var subnet infrav1beta2.Subnet
+	if len(s.IBMPowerVSCluster.Spec.VPCSubnets) > 1 {
+		//TODO: Update this later to handle all subnets
+		subnet = s.IBMPowerVSCluster.Spec.VPCSubnets[0]
+	}
+	if s.GetVPCSubnetID(*subnet.Name) != nil {
 		subnet, _, err := s.IBMVPCClient.GetSubnet(&vpcv1.GetSubnetOptions{
-			ID: s.GetVPCSubnetID(),
+			ID: s.GetVPCSubnetID(*subnet.Name),
 		})
 		if err != nil {
 			return err
@@ -690,7 +769,7 @@ func (s *PowerVSClusterScope) ReconcileVPCSubnet() error {
 	}
 	if vpcSubnetID != "" {
 		s.Info("found vpc subnet", "id", vpcSubnetID)
-		s.SetVPCSubnetID(vpcSubnetID)
+		s.SetVPCSubnetID(*subnet.Name, infrav1beta2.ResourceReference{ID: &vpcSubnetID, ControllerCreated: pointer.Bool(false)})
 		return nil
 	}
 
@@ -701,7 +780,7 @@ func (s *PowerVSClusterScope) ReconcileVPCSubnet() error {
 	}
 	if subnetID != nil {
 		s.Info("created vpc subnet", "id", vpcSubnetID)
-		s.SetVPCSubnetID(*subnetID)
+		s.SetVPCSubnetID(*subnet.Name, infrav1beta2.ResourceReference{ID: subnetID, ControllerCreated: pointer.Bool(true)})
 		return nil
 	}
 	// TODO(karthik-k-n)(Doubt): Do we need to create public gateway?
@@ -711,7 +790,7 @@ func (s *PowerVSClusterScope) ReconcileVPCSubnet() error {
 // checkVPCSubnet checks VPC subnet exist in cloud.
 func (s *PowerVSClusterScope) checkVPCSubnet() (string, error) {
 	// TODO(karthik-k-n): Support ID
-	vpcSubnet, err := s.IBMVPCClient.GetVPCSubnetByName(*s.getServiceName("vpcSubnet"))
+	vpcSubnet, err := s.IBMVPCClient.GetVPCSubnetByName(*s.GetServiceName("vpcSubnet"))
 	if err != nil {
 		return "", err
 	}
@@ -743,7 +822,7 @@ func (s *PowerVSClusterScope) createVPCSubnet() (*string, error) {
 	options.SetSubnetPrototype(&vpcv1.SubnetPrototype{
 		IPVersion:     &ipVersion,
 		Ipv4CIDRBlock: &cidrBlock,
-		Name:          s.getServiceName("vpcSubnet"),
+		Name:          s.GetServiceName("vpcSubnet"),
 		VPC: &vpcv1.VPCIdentity{
 			ID: vpcID,
 		},
@@ -787,7 +866,7 @@ func (s *PowerVSClusterScope) ReconcileTransitGateway() error {
 		return err
 	}
 	if tgID != "" {
-		s.SetTransitGatewayID(tgID)
+		s.SetStatus(TransitGateway, infrav1beta2.ResourceReference{ID: &tgID, ControllerCreated: pointer.Bool(false)})
 		return nil
 	}
 	// create transit gateway
@@ -796,7 +875,7 @@ func (s *PowerVSClusterScope) ReconcileTransitGateway() error {
 		return err
 	}
 	if transitGatewayID != nil {
-		s.SetTransitGatewayID(*transitGatewayID)
+		s.SetStatus(TransitGateway, infrav1beta2.ResourceReference{ID: transitGatewayID, ControllerCreated: pointer.Bool(true)})
 		return nil
 	}
 
@@ -811,7 +890,7 @@ func (s *PowerVSClusterScope) ReconcileTransitGateway() error {
 // checkTransitGateway checks transit gateway exist in cloud.
 func (s *PowerVSClusterScope) checkTransitGateway() (string, error) {
 	// TODO(karthik-k-n): Support ID
-	transitGateway, err := s.TransitGatewayClient.GetTransitGatewayByName(*s.getServiceName("transitGateway"))
+	transitGateway, err := s.TransitGatewayClient.GetTransitGatewayByName(*s.GetServiceName("transitGateway"))
 	if err != nil {
 		return "", err
 	}
@@ -868,10 +947,10 @@ func (s *PowerVSClusterScope) createTransitGateway() (*string, error) {
 		return nil, fmt.Errorf("error getting id for resource group %s, %w", *s.ResourceGroup(), err)
 	}
 
-	transitGatewayName := fmt.Sprintf("%s-%s", s.InfraCluster().GetName(), "transitgateway")
+	//transitGatewayName := fmt.Sprintf("%s-%s", s.InfraCluster().GetName(), "transitgateway")
 	tg, _, err := s.TransitGatewayClient.CreateTransitGateway(&tgapiv1.CreateTransitGatewayOptions{
 		Location:      s.getVPCRegion(),
-		Name:          pointer.String(transitGatewayName),
+		Name:          s.GetServiceName("transitGateway"),
 		Global:        pointer.Bool(true),
 		ResourceGroup: &tgapiv1.ResourceGroupIdentity{ID: pointer.String(resourceGroupID)},
 	})
@@ -888,7 +967,7 @@ func (s *PowerVSClusterScope) createTransitGateway() (*string, error) {
 		TransitGatewayID: tg.ID,
 		NetworkType:      pointer.String("vpc"),
 		NetworkID:        vpcCRN,
-		Name:             pointer.String(fmt.Sprintf("%s-vpc-con", transitGatewayName)),
+		Name:             pointer.String(fmt.Sprintf("%s-vpc-con", *s.GetServiceName("transitGateway"))),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating vpc connection in transit gateway: %w", err)
@@ -903,7 +982,7 @@ func (s *PowerVSClusterScope) createTransitGateway() (*string, error) {
 		TransitGatewayID: tg.ID,
 		NetworkType:      pointer.String("power_virtual_server"),
 		NetworkID:        pvsServiceInstanceCRN,
-		Name:             pointer.String(fmt.Sprintf("%s-pvs-con", transitGatewayName)),
+		Name:             pointer.String(fmt.Sprintf("%s-pvs-con", *s.GetServiceName("transitGateway"))),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating powervs connection in transit gateway: %w", err)
@@ -913,10 +992,15 @@ func (s *PowerVSClusterScope) createTransitGateway() (*string, error) {
 
 // ReconcileLoadBalancer reconcile loadBalancer.
 func (s *PowerVSClusterScope) ReconcileLoadBalancer() error {
-	if s.GetLoadBalancerID() != nil {
-		s.Info("LoadBalancer ID is set, fetching loadbalancer details", "loadbalancerid", s.GetLoadBalancerID())
+	var loadBalancer infrav1beta2.VPCLoadBalancerSpec
+	if len(s.IBMPowerVSCluster.Spec.LoadBalancers) > 1 {
+		//TODO: Update this later to handle all loadbalancer
+		loadBalancer = s.IBMPowerVSCluster.Spec.LoadBalancers[0]
+	}
+	if s.GetLoadBalancerID(loadBalancer.Name) != nil {
+		s.Info("LoadBalancer ID is set, fetching loadbalancer details", "loadbalancerid", s.GetLoadBalancerID(loadBalancer.Name))
 		loadBalancer, _, err := s.IBMVPCClient.GetLoadBalancer(&vpcv1.GetLoadBalancerOptions{
-			ID: s.GetLoadBalancerID(),
+			ID: s.GetLoadBalancerID(loadBalancer.Name),
 		})
 		if err != nil {
 			return err
@@ -925,12 +1009,12 @@ func (s *PowerVSClusterScope) ReconcileLoadBalancer() error {
 			return fmt.Errorf("loadbalancer is not in active state, current state %s", *loadBalancer.ProvisioningStatus)
 		}
 		state := infrav1beta2.VPCLoadBalancerState(*loadBalancer.ProvisioningStatus)
-		loadBalancerStatus := &infrav1beta2.VPCLoadBalancerStatus{
+		loadBalancerStatus := infrav1beta2.VPCLoadBalancerStatus{
 			ID:       loadBalancer.ID,
-			State:    &state,
+			State:    state,
 			Hostname: loadBalancer.Hostname,
 		}
-		s.SetLoadBalancerStatus(loadBalancerStatus)
+		s.SetLoadBalancerStatus(*loadBalancer.Name, loadBalancerStatus)
 		return nil
 	}
 	// check VPC subnet exist in cloud
@@ -939,7 +1023,7 @@ func (s *PowerVSClusterScope) ReconcileLoadBalancer() error {
 		return err
 	}
 	if loadBalancerStatus != nil {
-		s.SetLoadBalancerStatus(loadBalancerStatus)
+		s.SetLoadBalancerStatus(*s.GetServiceName("loadBalancer"), *loadBalancerStatus)
 		return nil
 	}
 
@@ -948,13 +1032,13 @@ func (s *PowerVSClusterScope) ReconcileLoadBalancer() error {
 	if err != nil {
 		return err
 	}
-	s.SetLoadBalancerStatus(loadBalancerStatus)
+	s.SetLoadBalancerStatus(loadBalancer.Name, *loadBalancerStatus)
 	return nil
 }
 
 // checkLoadBalancer checks loadBalancer in cloud.
 func (s *PowerVSClusterScope) checkLoadBalancer() (*infrav1beta2.VPCLoadBalancerStatus, error) {
-	loadBalancer, err := s.IBMVPCClient.GetLoadBalancerByName(*s.getServiceName("loadBalancer"))
+	loadBalancer, err := s.IBMVPCClient.GetLoadBalancerByName(*s.GetServiceName("loadBalancer"))
 	if err != nil {
 		return nil, err
 	}
@@ -964,7 +1048,7 @@ func (s *PowerVSClusterScope) checkLoadBalancer() (*infrav1beta2.VPCLoadBalancer
 	state := infrav1beta2.VPCLoadBalancerState(*loadBalancer.ProvisioningStatus)
 	return &infrav1beta2.VPCLoadBalancerStatus{
 		ID:       loadBalancer.ID,
-		State:    &state,
+		State:    state,
 		Hostname: loadBalancer.Hostname,
 	}, nil
 }
@@ -972,7 +1056,7 @@ func (s *PowerVSClusterScope) checkLoadBalancer() (*infrav1beta2.VPCLoadBalancer
 // createLoadBalancer creates loadBalancer.
 func (s *PowerVSClusterScope) createLoadBalancer() (*infrav1beta2.VPCLoadBalancerStatus, error) {
 	options := &vpcv1.CreateLoadBalancerOptions{}
-	loadBalancerName := *s.getServiceName("loadBalancer")
+	loadBalancerName := *s.GetServiceName("loadBalancer")
 	// TODO(karthik-k-n): consider moving resource group id to clusterscope
 	// fetch resource group id
 	resourceGroupID, err := s.getResourceGroupID()
@@ -986,7 +1070,8 @@ func (s *PowerVSClusterScope) createLoadBalancer() (*infrav1beta2.VPCLoadBalance
 		ID: &resourceGroupID,
 	})
 
-	subnetId := s.GetVPCSubnetID()
+	//TODO(Handle this)
+	subnetId := s.GetVPCSubnetID(*s.GetServiceName("vpcSubnet"))
 	if subnetId == nil {
 		return nil, fmt.Errorf("error subnet required for load balancer creation")
 	}
@@ -1020,12 +1105,12 @@ func (s *PowerVSClusterScope) createLoadBalancer() (*infrav1beta2.VPCLoadBalance
 				Algorithm:     core.StringPtr("round_robin"),
 				HealthMonitor: &vpcv1.LoadBalancerPoolHealthMonitorPrototype{Delay: core.Int64Ptr(5), MaxRetries: core.Int64Ptr(2), Timeout: core.Int64Ptr(2), Type: core.StringPtr("tcp")},
 				Name:          pointer.String(fmt.Sprintf("additional-listener-%d", index)),
-				Protocol:      core.StringPtr(strings.ToLower(additionalListeners.Protocol)),
+				Protocol:      core.StringPtr("tcp"),
 			}
 			options.Pools = append(options.Pools, pool)
 
 			listener := vpcv1.LoadBalancerListenerPrototypeLoadBalancerContext{
-				Protocol: core.StringPtr(strings.ToLower(additionalListeners.Protocol)),
+				Protocol: core.StringPtr("tcp"),
 				Port:     core.Int64Ptr(additionalListeners.Port),
 				DefaultPool: &vpcv1.LoadBalancerPoolIdentityByName{
 					Name: core.StringPtr(fmt.Sprintf("additional-listener-%d", index)),
@@ -1040,19 +1125,20 @@ func (s *PowerVSClusterScope) createLoadBalancer() (*infrav1beta2.VPCLoadBalance
 	}
 	lbState := infrav1beta2.VPCLoadBalancerState(*loadBalancer.ProvisioningStatus)
 	return &infrav1beta2.VPCLoadBalancerStatus{
-		ID:       loadBalancer.ID,
-		State:    &lbState,
-		Hostname: loadBalancer.Hostname,
+		ID:                loadBalancer.ID,
+		State:             lbState,
+		Hostname:          loadBalancer.Hostname,
+		ControllerCreated: pointer.Bool(true),
 	}, nil
 }
 
-func (s *PowerVSClusterScope) COSBucket() *infrav1beta2.CosBucket {
-	return s.IBMPowerVSCluster.Spec.CosBucket
+func (s *PowerVSClusterScope) COSInstance() *infrav1beta2.CosInstance {
+	return s.IBMPowerVSCluster.Spec.CosInstance
 }
 
-// ReconcileCOSBucket reconcile COS bucket.
-func (s *PowerVSClusterScope) ReconcileCOSBucket() error {
-	if s.COSBucket() == nil || s.COSBucket().Name == "" {
+// ReconcileCOSInstance reconcile COS bucket.
+func (s *PowerVSClusterScope) ReconcileCOSInstance() error {
+	if s.COSInstance() == nil || s.COSInstance().Name == "" {
 		return nil
 	}
 
@@ -1063,7 +1149,7 @@ func (s *PowerVSClusterScope) ReconcileCOSBucket() error {
 		return err
 	}
 	if cosServiceInstanceStatus != nil {
-		s.SetCOSBucketStatus(*cosServiceInstanceStatus.GUID)
+		s.SetStatus(TransitGateway, infrav1beta2.ResourceReference{ID: cosServiceInstanceStatus.GUID, ControllerCreated: pointer.Bool(false)})
 	} else {
 		// create COS service instance
 		cosServiceInstanceStatus, err = s.createCOSServiceInstance()
@@ -1071,7 +1157,7 @@ func (s *PowerVSClusterScope) ReconcileCOSBucket() error {
 			s.Error(err, "error creating cos service instance")
 			return err
 		}
-		s.SetCOSBucketStatus(*cosServiceInstanceStatus.GUID)
+		s.SetStatus(TransitGateway, infrav1beta2.ResourceReference{ID: cosServiceInstanceStatus.GUID, ControllerCreated: pointer.Bool(true)})
 	}
 
 	apiKey := os.Getenv("IBMCLOUD_API_KEY")
@@ -1080,7 +1166,7 @@ func (s *PowerVSClusterScope) ReconcileCOSBucket() error {
 	}
 	apiKey = APIKEY
 
-	cosClient, err := cos.NewService(cos.ServiceOptions{}, genUtil.VPCRegion, apiKey, *cosServiceInstanceStatus.GUID)
+	cosClient, err := cos.NewService(cos.ServiceOptions{}, s.IBMPowerVSCluster.Spec.CosInstance.BucketRegion, apiKey, *cosServiceInstanceStatus.GUID)
 	if err != nil {
 		s.Error(err, "error creating cosClient")
 		return fmt.Errorf("failed to create cos client: %w", err)
@@ -1102,7 +1188,7 @@ func (s *PowerVSClusterScope) ReconcileCOSBucket() error {
 }
 
 func (s *PowerVSClusterScope) checkCOSBucket() (bool, error) {
-	if _, err := s.COSClient.GetBucketByName(s.COSBucket().Name); err != nil {
+	if _, err := s.COSClient.GetBucketByName(s.COSInstance().BucketName); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case s3.ErrCodeNoSuchBucket, "Forbidden", "NotFound":
@@ -1120,7 +1206,7 @@ func (s *PowerVSClusterScope) checkCOSBucket() (bool, error) {
 
 func (s *PowerVSClusterScope) createCOSBucket() error {
 	input := &s3.CreateBucketInput{
-		Bucket: pointer.String(s.COSBucket().Name),
+		Bucket: pointer.String(s.COSInstance().BucketName),
 	}
 	_, err := s.COSClient.CreateBucket(input)
 	if err == nil {
@@ -1143,13 +1229,12 @@ func (s *PowerVSClusterScope) createCOSBucket() error {
 
 func (s *PowerVSClusterScope) checkCOSServiceInstance() (*resourcecontrollerv2.ResourceInstance, error) {
 	// check cos service instance
-	serviceInstanceName := fmt.Sprintf("%s-%s", s.InfraCluster().GetName(), "cosInstance")
-	serviceInstance, err := s.ResourceClient.GetInstanceByName(serviceInstanceName, cosResourceID, cosResourcePlanID)
+	serviceInstance, err := s.ResourceClient.GetInstanceByName(s.COSInstance().Name, cosResourceID, cosResourcePlanID)
 	if err != nil {
 		return nil, err
 	}
 	if serviceInstance == nil {
-		s.Info("cos service instance is nil", "name", serviceInstanceName)
+		s.Info("cos service instance is nil", "name", s.COSInstance().Name)
 		return nil, nil
 	}
 	if *serviceInstance.State != "active" {
@@ -1245,8 +1330,9 @@ func (s *PowerVSClusterScope) fetchPowerVSServiceInstanceCRN() (*string, error) 
 }
 
 // TODO(karthik-k-n): Decide on proper naming format for services
-// getServiceName returns name of given service type from spec or generate a name for it.
-func (s *PowerVSClusterScope) getServiceName(serviceType string) *string {
+
+// GetServiceName returns name of given service type from spec or generate a name for it.
+func (s *PowerVSClusterScope) GetServiceName(serviceType string) *string {
 	switch serviceType {
 	case "serviceInstance":
 		if s.ServiceInstance() == nil || s.ServiceInstance().Name == nil {
@@ -1282,10 +1368,10 @@ func (s *PowerVSClusterScope) getServiceName(serviceType string) *string {
 	case "dhcp":
 		return pointer.String(fmt.Sprintf("%s-dhcp", s.InfraCluster().GetName()))
 	case "cosBucket":
-		if s.COSBucket() == nil || s.COSBucket().Name == "" {
-			return pointer.String(fmt.Sprintf("%s-cosbucket", s.InfraCluster().GetName()))
+		if s.COSInstance() == nil || s.COSInstance().Name == "" {
+			return pointer.String(fmt.Sprintf("%s-cosinstance", s.InfraCluster().GetName()))
 		}
-		return &s.COSBucket().Name
+		return &s.COSInstance().Name
 	}
 	return nil
 }
