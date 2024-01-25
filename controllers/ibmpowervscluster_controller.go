@@ -122,11 +122,6 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 		return ctrl.Result{}, nil
 	}
 
-	//if !feature.Gates.Enabled(feature.PowerVSCreateInfra) {
-	//	clusterScope.IBMPowerVSCluster.Status.Ready = true
-	//	return ctrl.Result{}, nil
-	//}
-
 	powerVSCluster := clusterScope.IBMPowerVSCluster
 	// reconcile service instance
 	if err := clusterScope.ReconcileServiceInstance(); err != nil {
@@ -182,26 +177,27 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 		return reconcile.Result{}, err
 	}
 
-	// reconcile COSBucket
-	clusterScope.Info("Reconciling COSBucket")
-	if err := clusterScope.ReconcileCOSBucket(); err != nil {
-		conditions.MarkFalse(powerVSCluster, infrav1beta2.COSBucketReadyCondition, infrav1beta2.COSBucketReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
+	// reconcile COSInstance
+	clusterScope.Info("Reconciling COSInstance")
+	if err := clusterScope.ReconcileCOSInstance(); err != nil {
+		conditions.MarkFalse(powerVSCluster, infrav1beta2.COSInstanceReadyCondition, infrav1beta2.COSInstanceReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
 		return reconcile.Result{}, err
 	}
 
-	if clusterScope.GetLoadBalancerState() == nil || *clusterScope.GetLoadBalancerState() != infrav1beta2.VPCLoadBalancerStateActive {
+	loadBalancerName := *clusterScope.GetServiceName("loadBalancer")
+	if clusterScope.GetLoadBalancerState(loadBalancerName) == nil || *clusterScope.GetLoadBalancerState(loadBalancerName) != infrav1beta2.VPCLoadBalancerStateActive {
 		clusterScope.Info("LoadBalancer state is not active")
 		return reconcile.Result{RequeueAfter: time.Minute}, nil
 	}
 
 	clusterScope.Info("Getting load balancer host")
-	if clusterScope.GetLoadBalancerHost() == nil || *clusterScope.GetLoadBalancerHost() == "" {
+	if clusterScope.GetLoadBalancerHost(loadBalancerName) == nil || *clusterScope.GetLoadBalancerHost(loadBalancerName) == "" {
 		clusterScope.Info("LoadBalancer hostname is not yet available, requeuing")
 		return reconcile.Result{RequeueAfter: time.Minute}, nil
 	}
 	conditions.MarkTrue(powerVSCluster, infrav1beta2.LoadBalancerReadyCondition)
 
-	clusterScope.IBMPowerVSCluster.Spec.ControlPlaneEndpoint.Host = *clusterScope.GetLoadBalancerHost()
+	clusterScope.IBMPowerVSCluster.Spec.ControlPlaneEndpoint.Host = *clusterScope.GetLoadBalancerHost(loadBalancerName)
 	clusterScope.IBMPowerVSCluster.Spec.ControlPlaneEndpoint.Port = clusterScope.APIServerPort()
 	clusterScope.IBMPowerVSCluster.Status.Ready = true
 	return ctrl.Result{}, nil
