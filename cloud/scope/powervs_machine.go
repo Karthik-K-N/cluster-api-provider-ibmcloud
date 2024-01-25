@@ -389,13 +389,13 @@ func (m *PowerVSMachineScope) createIgnitionData(data []byte) (string, error) {
 	}
 	apiKey = APIKEY
 
-	cosClient, err := cos.NewService(cos.ServiceOptions{}, genUtil.VPCRegion, apiKey, *serviceInstance.GUID)
+	cosClient, err := cos.NewService(cos.ServiceOptions{}, m.IBMPowerVSCluster.Spec.CosInstance.BucketRegion, apiKey, *serviceInstance.GUID)
 	if err != nil {
 		m.Error(err, "failed to create cos client")
 		return "", fmt.Errorf("failed to create cos client: %w", err)
 	}
 
-	bucket := m.IBMPowerVSCluster.Spec.CosBucket.Name
+	bucket := m.IBMPowerVSCluster.Spec.CosInstance.BucketName
 	if _, err := cosClient.PutObject(&s3.PutObjectInput{
 		Body:   aws.ReadSeekCloser(bytes.NewReader(data)),
 		Bucket: aws.String(bucket),
@@ -405,7 +405,7 @@ func (m *PowerVSMachineScope) createIgnitionData(data []byte) (string, error) {
 		return "", fmt.Errorf("putting object to cos bucket %w", err)
 	}
 
-	if exp := m.IBMPowerVSCluster.Spec.CosBucket.PresignedURLDuration; exp != nil {
+	if exp := m.IBMPowerVSCluster.Spec.CosInstance.PresignedURLDuration; exp != nil {
 
 		m.Info("assigning presigned url", "exp", exp)
 		req, _ := cosClient.GetObjectRequest(&s3.GetObjectInput{
@@ -816,8 +816,10 @@ func (m *PowerVSMachineScope) GetMachineInternalIP() string {
 }
 
 func (m *PowerVSMachineScope) CreateVPCLoadBalancerPoolMember() (*vpcv1.LoadBalancerPoolMember, error) {
+	//TODO: Fix me
+	loadbalancer := m.IBMPowerVSCluster.Spec.LoadBalancers[0]
 	loadBalancer, _, err := m.IBMVPCClient.GetLoadBalancer(&vpcv1.GetLoadBalancerOptions{
-		ID: m.IBMPowerVSCluster.Status.ControlPlaneLoadBalancer.ID,
+		ID: m.IBMPowerVSCluster.Status.LoadBalancers[loadbalancer.Name].ID,
 	})
 	if err != nil {
 		return nil, err
