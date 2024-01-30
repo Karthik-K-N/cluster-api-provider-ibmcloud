@@ -222,6 +222,13 @@ func (r *IBMPowerVSCluster) SetConditions(conditions capiv1beta1.Conditions) {
 	r.Status.Conditions = conditions
 }
 
+func (rf *ResourceReference) Set(resource ResourceReference) {
+	rf.ID = resource.ID
+	if !*rf.ControllerCreated {
+		rf.ControllerCreated = resource.ControllerCreated
+	}
+}
+
 func init() {
 	SchemeBuilder.Register(&IBMPowerVSCluster{}, &IBMPowerVSClusterList{})
 }

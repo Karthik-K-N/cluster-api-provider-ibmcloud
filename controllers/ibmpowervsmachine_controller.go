@@ -275,10 +275,6 @@ func (r *IBMPowerVSMachineReconciler) reconcileNormal(machineScope *scope.PowerV
 		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
 	}
 
-	//if !feature.Gates.Enabled(feature.PowerVSCreateInfra) {
-	//	return ctrl.Result{}, nil
-	//}
-
 	// Register instance with load balancer
 	machineScope.Info("updating loadbalancer for machine", "name", machineScope.IBMPowerVSMachine.Name)
 	internalIP := machineScope.GetMachineInternalIP()
@@ -290,9 +286,8 @@ func (r *IBMPowerVSMachineReconciler) reconcileNormal(machineScope *scope.PowerV
 		if poolMember != nil && *poolMember.ProvisioningStatus != string(infrav1beta2.VPCLoadBalancerStateActive) {
 			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 		}
-
 	} else {
-		machineScope.Info("Not able to update the LoadBalancer, Machine %s internal IP not yet set", machineScope.IBMPowerVSMachine.Name)
+		machineScope.Info("Not able to update the LoadBalancer, Machine internal IP not yet set", "machine name", machineScope.IBMPowerVSMachine.Name)
 	}
 	return ctrl.Result{}, nil
 }

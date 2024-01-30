@@ -18,7 +18,6 @@ package powervs
 
 import (
 	"context"
-	genUtil "sigs.k8s.io/cluster-api-provider-ibmcloud/util"
 	"time"
 
 	"github.com/IBM-Cloud/power-go-client/clients/instance"
@@ -74,7 +73,6 @@ func NewService(options ServiceOptions) (PowerVS, error) {
 		return nil, err
 	}
 	options.IBMPIOptions.UserAccount = account
-	options.IBMPIOptions.Zone = genUtil.PowerVSZone
 	session, err := ibmpisession.NewIBMPISession(options.IBMPIOptions)
 	if err != nil {
 		return nil, err
@@ -159,6 +157,11 @@ func (s *Service) DeleteJob(id string) error {
 // GetAllNetwork returns all the networks in the Power VS service instance.
 func (s *Service) GetAllNetwork() (*models.Networks, error) {
 	return s.networkClient.GetAll()
+}
+
+// GetNetworkByID returns network corresponding to given id.
+func (s *Service) GetNetworkByID(id string) (*models.Network, error) {
+	return s.networkClient.Get(id)
 }
 
 // GetAllDHCPServers returns all the DHCP servers in the Power VS service instance.

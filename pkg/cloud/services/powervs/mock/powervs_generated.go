@@ -277,6 +277,21 @@ func (mr *MockPowerVSMockRecorder) GetJob(id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetJob", reflect.TypeOf((*MockPowerVS)(nil).GetJob), id)
 }
 
+// GetNetworkByID mocks base method.
+func (m *MockPowerVS) GetNetworkByID(id string) (*models.Network, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkByID", id)
+	ret0, _ := ret[0].(*models.Network)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkByID indicates an expected call of GetNetworkByID.
+func (mr *MockPowerVSMockRecorder) GetNetworkByID(id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkByID", reflect.TypeOf((*MockPowerVS)(nil).GetNetworkByID), id)
+}
+
 // GetNetworkByName mocks base method.
 func (m *MockPowerVS) GetNetworkByName(networkName string) (*models.NetworkReference, error) {
 	m.ctrl.T.Helper()
