@@ -81,14 +81,19 @@ func (s *Service) CreateResourceInstance(options *resourcecontrollerv2.CreateRes
 	return s.client.CreateResourceInstance(options)
 }
 
-// GetServiceInstanceByName returns service instance with given name, If not found returns nil.
-func (s *Service) GetServiceInstanceByName(name string) (*resourcecontrollerv2.ResourceInstance, error) {
+// GetServiceInstance returns service instance with given name or id, If not found returns nil.
+func (s *Service) GetServiceInstance(id, name string) (*resourcecontrollerv2.ResourceInstance, error) {
 	var serviceInstancesList []resourcecontrollerv2.ResourceInstance
 	f := func(start string) (bool, string, error) {
 		listServiceInstanceOptions := &resourcecontrollerv2.ListResourceInstancesOptions{
-			Name:           &name,
 			ResourceID:     pointer.String(powerVSResourceID),
 			ResourcePlanID: pointer.String(powerVSResourcePlanID),
+		}
+		if id != "" {
+			listServiceInstanceOptions.GUID = &id
+		}
+		if name != "" {
+			listServiceInstanceOptions.Name = &name
 		}
 		if start != "" {
 			listServiceInstanceOptions.Start = &start
