@@ -110,3 +110,9 @@ const (
 	// COSInstanceReconciliationFailedReason used when an error occurs during COS instance reconciliation.
 	COSInstanceReconciliationFailedReason = "COSInstanceCreationFailed"
 )
+
+const (
+	// CreateInfrastructureAnnotation is the name of an annotation that indicates if
+	// Power VS infrastructure should be created as a part of cluster creation.
+	CreateInfrastructureAnnotation = "powervs.cluster.x-k8s.io/create-infra"
+)

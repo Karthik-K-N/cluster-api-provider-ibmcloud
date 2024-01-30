@@ -30,6 +30,7 @@ type PowerVS interface {
 	GetAllInstance() (*models.PVMInstances, error)
 	GetAllImage() (*models.Images, error)
 	GetAllNetwork() (*models.Networks, error)
+	GetNetworkByID(id string) (*models.Network, error)
 	GetInstance(id string) (*models.PVMInstance, error)
 	GetImage(id string) (*models.Image, error)
 	DeleteImage(id string) error

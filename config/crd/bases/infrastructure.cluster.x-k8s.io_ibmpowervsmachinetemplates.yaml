@@ -359,6 +359,7 @@ spec:
                         - s922
                         - e880
                         - e980
+                        - s1022
                         - ""
                         type: string
                     required:
