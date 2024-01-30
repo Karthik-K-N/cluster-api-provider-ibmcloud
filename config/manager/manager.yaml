@@ -45,12 +45,5 @@ spec:
           httpGet:
             path: /healthz
             port: healthz
-        resources:
-          limits:
-            cpu: 100m
-            memory: 30Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
       terminationGracePeriodSeconds: 10
       serviceAccountName: manager

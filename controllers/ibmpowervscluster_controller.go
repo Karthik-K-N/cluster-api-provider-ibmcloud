@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,7 +41,6 @@ import (
 
 	infrav1beta2 "sigs.k8s.io/cluster-api-provider-ibmcloud/api/v1beta2"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/cloud/scope"
-	"sigs.k8s.io/cluster-api-provider-ibmcloud/feature"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/powervs"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/endpoints"
 )
@@ -96,15 +96,7 @@ func (r *IBMPowerVSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// Always close the scope when exiting this function so we can persist any IBMPowerVSCluster changes.
 	defer func() {
-
-		fmt.Println("**************************")
-		fmt.Println("**************************")
 		if err := clusterScope.Close(); err != nil && reterr == nil {
-			fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!")
-			fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!")
-			fmt.Print("patch error %w", err)
-			fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!")
-			fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!")
 			reterr = err
 		}
 	}()
@@ -122,8 +114,14 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 		return ctrl.Result{}, nil
 	}
 
+	// check for annotation set for cluster resource and decide on proceeding with infra creation.
+	if !createInfra(clusterScope) {
+		clusterScope.IBMPowerVSCluster.Status.Ready = true
+		return ctrl.Result{}, nil
+	}
 	powerVSCluster := clusterScope.IBMPowerVSCluster
 	// reconcile service instance
+	clusterScope.Info("Reconciling service instance")
 	if err := clusterScope.ReconcileServiceInstance(); err != nil {
 		clusterScope.Error(err, "failed to reconcile service instance")
 		conditions.MarkFalse(powerVSCluster, infrav1beta2.ServiceInstanceReadyCondition, infrav1beta2.ServiceInstanceReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
@@ -142,8 +140,8 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 	}
 	conditions.MarkTrue(powerVSCluster, infrav1beta2.NetworkReadyCondition)
 
-	clusterScope.Info("Reconciling VPC")
 	// reconcile VPC
+	clusterScope.Info("Reconciling VPC")
 	if err := clusterScope.ReconcileVPC(); err != nil {
 		clusterScope.Error(err, "failed to reconcile VPC")
 		conditions.MarkFalse(powerVSCluster, infrav1beta2.VPCReadyCondition, infrav1beta2.VPCReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
@@ -158,7 +156,7 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 		conditions.MarkFalse(powerVSCluster, infrav1beta2.VPCSubnetReadyCondition, infrav1beta2.VPCSubnetReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
 		return reconcile.Result{}, err
 	}
-	conditions.MarkTrue(powerVSCluster, infrav1beta2.VPCReadyCondition)
+	conditions.MarkTrue(powerVSCluster, infrav1beta2.VPCSubnetReadyCondition)
 
 	// reconcile Transit Gateway
 	clusterScope.Info("Reconciling Transit Gateway")
@@ -177,30 +175,51 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 		return reconcile.Result{}, err
 	}
 
-	// reconcile COSInstance
-	clusterScope.Info("Reconciling COSInstance")
-	if err := clusterScope.ReconcileCOSInstance(); err != nil {
-		conditions.MarkFalse(powerVSCluster, infrav1beta2.COSInstanceReadyCondition, infrav1beta2.COSInstanceReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
-		return reconcile.Result{}, err
-	}
+	//// reconcile COSInstance
+	//clusterScope.Info("Reconciling COSInstance")
+	//if err := clusterScope.ReconcileCOSInstance(); err != nil {
+	//	conditions.MarkFalse(powerVSCluster, infrav1beta2.COSInstanceReadyCondition, infrav1beta2.COSInstanceReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
+	//	return reconcile.Result{}, err
+	//}
 
-	loadBalancerName := *clusterScope.GetServiceName("loadBalancer")
-	if clusterScope.GetLoadBalancerState(loadBalancerName) == nil || *clusterScope.GetLoadBalancerState(loadBalancerName) != infrav1beta2.VPCLoadBalancerStateActive {
+	// update cluster object with loadbalancer host
+	loadBalancer := clusterScope.PublicLoadBalancer()
+	if loadBalancer == nil {
+		return reconcile.Result{}, fmt.Errorf("failed to fetch public loadbalancer")
+	}
+	if clusterScope.GetLoadBalancerState(loadBalancer.Name) == nil || *clusterScope.GetLoadBalancerState(loadBalancer.Name) != infrav1beta2.VPCLoadBalancerStateActive {
 		clusterScope.Info("LoadBalancer state is not active")
 		return reconcile.Result{RequeueAfter: time.Minute}, nil
 	}
 
 	clusterScope.Info("Getting load balancer host")
-	if clusterScope.GetLoadBalancerHost(loadBalancerName) == nil || *clusterScope.GetLoadBalancerHost(loadBalancerName) == "" {
+	if clusterScope.GetLoadBalancerHost(loadBalancer.Name) == nil || *clusterScope.GetLoadBalancerHost(loadBalancer.Name) == "" {
 		clusterScope.Info("LoadBalancer hostname is not yet available, requeuing")
 		return reconcile.Result{RequeueAfter: time.Minute}, nil
 	}
 	conditions.MarkTrue(powerVSCluster, infrav1beta2.LoadBalancerReadyCondition)
 
-	clusterScope.IBMPowerVSCluster.Spec.ControlPlaneEndpoint.Host = *clusterScope.GetLoadBalancerHost(loadBalancerName)
+	clusterScope.IBMPowerVSCluster.Spec.ControlPlaneEndpoint.Host = *clusterScope.GetLoadBalancerHost(loadBalancer.Name)
 	clusterScope.IBMPowerVSCluster.Spec.ControlPlaneEndpoint.Port = clusterScope.APIServerPort()
 	clusterScope.IBMPowerVSCluster.Status.Ready = true
 	return ctrl.Result{}, nil
+}
+
+// createInfra checks whether required annotation is set for resource to decide on infra creation.
+func createInfra(clusterScope *scope.PowerVSClusterScope) bool {
+	annotations := clusterScope.InfraCluster().GetAnnotations()
+	if len(annotations) == 0 {
+		return false
+	}
+	value, found := annotations[infrav1beta2.CreateInfrastructureAnnotation]
+	if !found {
+		return false
+	}
+	createInfra, err := strconv.ParseBool(value)
+	if err != nil {
+		clusterScope.Error(err, "error fetching annotations from cluster object")
+	}
+	return createInfra
 }
 
 func (r *IBMPowerVSClusterReconciler) reconcileDelete(ctx context.Context, clusterScope *scope.PowerVSClusterScope) (ctrl.Result, error) {
@@ -210,7 +229,8 @@ func (r *IBMPowerVSClusterReconciler) reconcileDelete(ctx context.Context, clust
 		return result, err
 	}
 
-	if !feature.Gates.Enabled(feature.PowerVSCreateInfra) {
+	// check for annotation set for cluster resource and decide on proceeding with infra deletion.
+	if !createInfra(clusterScope) {
 		controllerutil.RemoveFinalizer(cluster, infrav1beta2.IBMPowerVSClusterFinalizer)
 		return ctrl.Result{}, nil
 	}
@@ -233,6 +253,10 @@ func (r *IBMPowerVSClusterReconciler) reconcileDelete(ctx context.Context, clust
 
 	if err := clusterScope.DeleteNetwork(); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to delete network: %w", err)
+	}
+
+	if err := clusterScope.DeleteDHCPServer(); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to delete DHCP server: %w", err)
 	}
 
 	if err := clusterScope.DeleteServiceInstance(); err != nil {
