@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -235,34 +236,50 @@ func (r *IBMPowerVSClusterReconciler) reconcileDelete(ctx context.Context, clust
 		return ctrl.Result{}, nil
 	}
 
+	clusterScope.Info("Reconciling IBMPowerVSCluster delete")
+	allErrs := []error{}
+	clusterScope.IBMPowerVSClient.WithClients(powervs.ServiceOptions{CloudInstanceID: clusterScope.GetServiceInstanceID()})
+
+	clusterScope.Info("Deleting VPC load balancer")
 	if err := clusterScope.DeleteLoadBalancer(); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete loadbalancer: %w", err)
+		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete VPC load balancer"))
 	}
 
+	clusterScope.Info("Deleting VPC subnet")
 	if err := clusterScope.DeleteVPCSubnet(); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete vpc subnet: %w", err)
+		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete VPC subnet"))
 	}
 
+	clusterScope.Info("Deleting VPC")
 	if err := clusterScope.DeleteVPC(); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete vpc: %w", err)
+		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete VPC"))
 	}
 
+	clusterScope.Info("Deleting Transit Gateway")
 	if err := clusterScope.DeleteTransitGateway(); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete transit gateway: %w", err)
+		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete transit gateway"))
 	}
 
-	if err := clusterScope.DeleteNetwork(); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete network: %w", err)
-	}
-
+	clusterScope.Info("Deleting DHCP server")
 	if err := clusterScope.DeleteDHCPServer(); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete DHCP server: %w", err)
+		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete DHCP server"))
 	}
 
+	clusterScope.Info("Deleting Power VS service instance")
 	if err := clusterScope.DeleteServiceInstance(); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete service instance: %w", err)
+		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete Power VS service instance"))
 	}
 
+	clusterScope.Info("Deleting COS service instance")
+	if err := clusterScope.DeleteCosInstance(); err != nil {
+		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete COS instance"))
+	}
+
+	if len(allErrs) > 0 {
+		return ctrl.Result{}, kerrors.NewAggregate(allErrs)
+	}
+
+	clusterScope.Info("IBMPowerVSCluster deletion completed")
 	controllerutil.RemoveFinalizer(cluster, infrav1beta2.IBMPowerVSClusterFinalizer)
 	return ctrl.Result{}, nil
 }
