@@ -18,16 +18,18 @@ package cos
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
+	"time"
+
+	"golang.org/x/net/http/httpproxy"
+
 	"github.com/IBM/ibm-cos-sdk-go/aws"
 	"github.com/IBM/ibm-cos-sdk-go/aws/credentials/ibmiam"
 	"github.com/IBM/ibm-cos-sdk-go/aws/request"
 	cosSession "github.com/IBM/ibm-cos-sdk-go/aws/session"
 	"github.com/IBM/ibm-cos-sdk-go/service/s3"
-	"golang.org/x/net/http/httpproxy"
-	"net"
-	"net/http"
-	"net/url"
-	"time"
 )
 
 const IAMEndpoint = "https://iam.cloud.ibm.com/identity/token"

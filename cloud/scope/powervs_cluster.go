@@ -165,6 +165,45 @@ func NewPowerVSClusterScope(params PowerVSClusterScopeParams) (*PowerVSClusterSc
 		return nil, err
 	}
 
+	options := powervs.ServiceOptions{
+		IBMPIOptions: &ibmpisession.IBMPIOptions{
+			Debug: params.Logger.V(DEBUGLEVEL).Enabled(),
+		},
+	}
+
+	if params.IBMPowerVSCluster.Spec.ServiceInstanceID != "" {
+		rc, err := resourcecontroller.NewService(resourcecontroller.ServiceOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		// Fetch the resource controller endpoint.
+		if rcEndpoint := endpoints.FetchRCEndpoint(params.ServiceEndpoint); rcEndpoint != "" {
+			if err := rc.SetServiceURL(rcEndpoint); err != nil {
+				return nil, fmt.Errorf("failed to set resource controller endpoint: %w", err)
+			}
+		}
+
+		res, _, err := rc.GetResourceInstance(
+			&resourcecontrollerv2.GetResourceInstanceOptions{
+				ID: core.StringPtr(params.IBMPowerVSCluster.Spec.ServiceInstanceID),
+			})
+		if err != nil {
+			err = fmt.Errorf("failed to get resource instance: %w", err)
+			return nil, err
+		}
+		options.Zone = *res.RegionID
+		options.CloudInstanceID = params.IBMPowerVSCluster.Spec.ServiceInstanceID
+	} else {
+		options.Zone = *params.IBMPowerVSCluster.Spec.Zone
+	}
+
+	// TODO(karhtik-k-n): may be optimize NewService to use the session created here
+	powerVSClient, err := powervs.NewService(options)
+	if err != nil {
+		return nil, fmt.Errorf("error failed to create power vs client %w", err)
+	}
+
 	auth, err := authenticator.GetAuthenticator()
 	if err != nil {
 		return nil, fmt.Errorf("error failed to create authenticator %w", err)
@@ -177,23 +216,26 @@ func NewPowerVSClusterScope(params PowerVSClusterScopeParams) (*PowerVSClusterSc
 	sessionOptions := &ibmpisession.IBMPIOptions{
 		Authenticator: auth,
 		UserAccount:   account,
-		Zone:          *params.IBMPowerVSCluster.Spec.Zone,
+		Zone:          options.Zone,
 	}
 	session, err := ibmpisession.NewIBMPISession(sessionOptions)
 	if err != nil {
 		return nil, fmt.Errorf("error failed to get power vs session %w", err)
 	}
-	options := powervs.ServiceOptions{
-		IBMPIOptions: &ibmpisession.IBMPIOptions{
-			Debug: params.Logger.V(DEBUGLEVEL).Enabled(),
-			Zone:  *params.IBMPowerVSCluster.Spec.Zone,
-		},
+
+	if !genUtil.CreateInfra(*params.IBMPowerVSCluster) {
+		return &PowerVSClusterScope{
+			session:           session,
+			Logger:            params.Logger,
+			Client:            params.Client,
+			patchHelper:       helper,
+			Cluster:           params.Cluster,
+			IBMPowerVSCluster: params.IBMPowerVSCluster,
+			ServiceEndpoint:   params.ServiceEndpoint,
+			IBMPowerVSClient:  powerVSClient,
+		}, nil
 	}
-	// TODO(karhtik-k-n): may be optimize NewService to use the session created here
-	powerVSClient, err := powervs.NewService(options)
-	if err != nil {
-		return nil, fmt.Errorf("error failed to create power vs client %w", err)
-	}
+
 	if params.IBMPowerVSCluster.Spec.VPC == nil || params.IBMPowerVSCluster.Spec.VPC.Region == nil {
 		return nil, fmt.Errorf("error failed to generate vpc client as VPC info is nil")
 	}
@@ -334,6 +376,12 @@ func (s *PowerVSClusterScope) SetStatus(resourceType ResourceType, resource infr
 			return
 		}
 		s.IBMPowerVSCluster.Status.DHCPServer.Set(resource)
+	case COSInstance:
+		if s.IBMPowerVSCluster.Status.COSInstance == nil {
+			s.IBMPowerVSCluster.Status.COSInstance = &resource
+			return
+		}
+		s.IBMPowerVSCluster.Status.COSInstance.Set(resource)
 	}
 }
 
@@ -1246,7 +1294,7 @@ func (s *PowerVSClusterScope) ReconcileCOSInstance() error {
 		return err
 	}
 	if cosServiceInstanceStatus != nil {
-		s.SetStatus(TransitGateway, infrav1beta2.ResourceReference{ID: cosServiceInstanceStatus.GUID, ControllerCreated: pointer.Bool(false)})
+		s.SetStatus(COSInstance, infrav1beta2.ResourceReference{ID: cosServiceInstanceStatus.GUID, ControllerCreated: pointer.Bool(false)})
 	} else {
 		// create COS service instance
 		cosServiceInstanceStatus, err = s.createCOSServiceInstance()
@@ -1254,7 +1302,7 @@ func (s *PowerVSClusterScope) ReconcileCOSInstance() error {
 			s.Error(err, "error creating cos service instance")
 			return err
 		}
-		s.SetStatus(TransitGateway, infrav1beta2.ResourceReference{ID: cosServiceInstanceStatus.GUID, ControllerCreated: pointer.Bool(true)})
+		s.SetStatus(COSInstance, infrav1beta2.ResourceReference{ID: cosServiceInstanceStatus.GUID, ControllerCreated: pointer.Bool(true)})
 	}
 
 	apiKey := os.Getenv("IBMCLOUD_API_KEY")
@@ -1271,7 +1319,9 @@ func (s *PowerVSClusterScope) ReconcileCOSInstance() error {
 	s.COSClient = cosClient
 
 	// check bucket exist in service instance
-	if exist, err := s.checkCOSBucket(); exist || err != nil {
+	if exist, err := s.checkCOSBucket(); exist {
+		return nil
+	} else if err != nil {
 		s.Error(err, "error checking cos bucket")
 		return err
 	}
@@ -1319,6 +1369,8 @@ func (s *PowerVSClusterScope) createCOSBucket() error {
 	// If bucket already exists, all good.
 	case s3.ErrCodeBucketAlreadyOwnedByYou:
 		return nil
+	case s3.ErrCodeBucketAlreadyExists:
+		return nil
 	default:
 		return fmt.Errorf("error creating COS bucket %w", err)
 	}
@@ -1353,12 +1405,10 @@ func (s *PowerVSClusterScope) createCOSServiceInstance() (*resourcecontrollerv2.
 	//	return nil, fmt.Errorf("error retrieving id info for powervs service %w", err)
 	//}
 
-	//TODO(karthik-k-n): add funciton to fetch name
 	target := "Global"
-	serviceInstanceName := fmt.Sprintf("%s-%s", s.InfraCluster().GetName(), "cosInstance")
 	// create service instance
 	serviceInstance, _, err := s.ResourceClient.CreateResourceInstance(&resourcecontrollerv2.CreateResourceInstanceOptions{
-		Name:           &serviceInstanceName,
+		Name:           s.GetServiceName(COSInstance),
 		Target:         &target,
 		ResourceGroup:  &resourceGroupID,
 		ResourcePlanID: pointer.String(cosResourcePlanID),
@@ -1706,6 +1756,10 @@ func (s *PowerVSClusterScope) DeleteCosInstance() error {
 				return nil
 			}
 			return fmt.Errorf("error fetching COS instance: %w", err)
+		}
+
+		if cosInstance != nil && (*cosInstance.State == "pending_reclamation" || *cosInstance.State == string(infrav1beta2.ServiceInstanceStateRemoved)) {
+			return nil
 		}
 
 		_, err = s.ResourceClient.DeleteResourceInstance(&resourcecontrollerv2.DeleteResourceInstanceOptions{

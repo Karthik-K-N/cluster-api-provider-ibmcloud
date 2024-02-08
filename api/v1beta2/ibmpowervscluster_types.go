@@ -56,8 +56,6 @@ type IBMPowerVSClusterSpec struct {
 
 	// zone is the name of Power VS zone where the cluster will be created
 	// possible values can be found here https://cloud.ibm.com/docs/power-iaas?topic=power-iaas-creating-power-virtual-server.
-	// when omitted syd04 will be set as default zone.
-	// +kubebuilder:default=dal10
 	// +optional
 	Zone *string `json:"zone,omitempty"`
 
