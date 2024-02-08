@@ -41,6 +41,7 @@ type PowerVS interface {
 	GetAllDHCPServers() (models.DHCPServers, error)
 	GetDHCPServer(id string) (*models.DHCPServerDetail, error)
 	CreateDHCPServer(*models.DHCPServerCreate) (*models.DHCPServer, error)
+	DeleteDHCPServer(id string) error
 	WithClients(options ServiceOptions) *Service
 	GetNetworkByName(networkName string) (*models.NetworkReference, error)
 }

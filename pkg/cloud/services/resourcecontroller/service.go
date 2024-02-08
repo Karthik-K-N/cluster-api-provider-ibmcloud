@@ -18,6 +18,7 @@ package resourcecontroller
 
 import (
 	"fmt"
+
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
 	"k8s.io/utils/pointer"
@@ -79,6 +80,11 @@ func (s *Service) GetResourceInstance(getResourceInstanceOptions *resourcecontro
 // CreateResourceInstance creates the resource instance.
 func (s *Service) CreateResourceInstance(options *resourcecontrollerv2.CreateResourceInstanceOptions) (*resourcecontrollerv2.ResourceInstance, *core.DetailedResponse, error) {
 	return s.client.CreateResourceInstance(options)
+}
+
+// DeleteResourceInstance deletes the resource instance.
+func (s *Service) DeleteResourceInstance(options *resourcecontrollerv2.DeleteResourceInstanceOptions) (*core.DetailedResponse, error) {
+	return s.client.DeleteResourceInstance(options)
 }
 
 // GetServiceInstance returns service instance with given name or id, If not found returns nil.

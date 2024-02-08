@@ -30,4 +30,6 @@ type TransitGateway interface {
 	CreateTransitGateway(*tgapiv1.CreateTransitGatewayOptions) (*tgapiv1.TransitGateway, *core.DetailedResponse, error)
 	CreateTransitGatewayConnection(*tgapiv1.CreateTransitGatewayConnectionOptions) (*tgapiv1.TransitGatewayConnectionCust, *core.DetailedResponse, error)
 	GetTransitGatewayConnection(*tgapiv1.GetTransitGatewayConnectionOptions) (*tgapiv1.TransitGatewayConnectionCust, *core.DetailedResponse, error)
+	DeleteTransitGateway(deleteTransitGatewayOptions *tgapiv1.DeleteTransitGatewayOptions) (response *core.DetailedResponse, err error)
+	DeleteTransitGatewayConnection(deleteTransitGatewayConnectionOptions *tgapiv1.DeleteTransitGatewayConnectionOptions) (response *core.DetailedResponse, err error)
 }

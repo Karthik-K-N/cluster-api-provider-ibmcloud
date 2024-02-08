@@ -179,6 +179,11 @@ func (s *Service) CreateDHCPServer(options *models.DHCPServerCreate) (*models.DH
 	return s.dhcpClient.Create(options)
 }
 
+// DeleteDHCPServer deletes the DHCP server.
+func (s *Service) DeleteDHCPServer(id string) error {
+	return s.dhcpClient.Delete(id)
+}
+
 // GetNetworkByName fetches the network with name. If not found returns nil
 func (s *Service) GetNetworkByName(networkName string) (*models.NetworkReference, error) {
 	var network *models.NetworkReference
