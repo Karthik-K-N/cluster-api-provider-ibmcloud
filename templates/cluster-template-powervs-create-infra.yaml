@@ -183,7 +183,7 @@ metadata:
 spec:
   bucket: ${COS_BUCKET_NAME}
   clusterName: ${CLUSTER_NAME}
-  deletePolicy: retain
+  deletePolicy: delete
   object: ${COS_OBJECT_NAME}
   region: ${COS_BUCKET_REGION}
   serviceInstance:
@@ -427,7 +427,7 @@ data:
           serviceAccountName: cloud-controller-manager
           containers:
             - name: ibmpowervs-cloud-controller-manager
-              image: gcr.io/k8s-staging-capi-ibmcloud/powervs-cloud-controller-manager:07d19bf
+              image: gcr.io/k8s-staging-capi-ibmcloud/powervs-cloud-controller-manager:6c98ec5
               args:
                 - --v=2
                 - --cloud-provider=ibm

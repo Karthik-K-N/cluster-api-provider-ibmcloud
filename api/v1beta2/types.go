@@ -53,6 +53,25 @@ var (
 	PowerVSImageStateImporting = PowerVSImageState("importing")
 )
 
+// ServiceInstanceState describes the state of a service instance.
+type ServiceInstanceState string
+
+var (
+	// ServiceInstanceStateActive is the string representing a service instance in an active state.
+	ServiceInstanceStateActive = ServiceInstanceState("active")
+
+	// ServiceInstanceStateRemoved is the string representing a service instance in a removed state.
+	ServiceInstanceStateRemoved = ServiceInstanceState("removed")
+)
+
+// TransitGatewayState describes the state of an IBM Transit Gateway.
+type TransitGatewayState string
+
+var (
+	// TransitGatewayStateDeletePending is the string representing a transit gateway in deleting state.
+	TransitGatewayStateDeletePending = TransitGatewayState("deleting")
+)
+
 // VPCLoadBalancerState describes the state of the load balancer.
 type VPCLoadBalancerState string
 

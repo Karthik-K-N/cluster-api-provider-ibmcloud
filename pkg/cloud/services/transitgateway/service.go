@@ -18,8 +18,9 @@ package transitgateway
 
 import (
 	"fmt"
-	"github.com/IBM/go-sdk-core/v5/core"
 	"time"
+
+	"github.com/IBM/go-sdk-core/v5/core"
 
 	tgapiv1 "github.com/IBM/networking-go-sdk/transitgatewayapisv1"
 
@@ -46,6 +47,9 @@ func NewService() (TransitGateway, error) {
 		Authenticator: auth,
 		Version:       pointer.String(currentDate),
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	return &Service{
 		tgClient: tgClient,
@@ -99,4 +103,12 @@ func (s *Service) CreateTransitGatewayConnection(options *tgapiv1.CreateTransitG
 
 func (s *Service) GetTransitGatewayConnection(options *tgapiv1.GetTransitGatewayConnectionOptions) (*tgapiv1.TransitGatewayConnectionCust, *core.DetailedResponse, error) {
 	return s.tgClient.GetTransitGatewayConnection(options)
+}
+
+func (s *Service) DeleteTransitGateway(options *tgapiv1.DeleteTransitGatewayOptions) (*core.DetailedResponse, error) {
+	return s.tgClient.DeleteTransitGateway(options)
+}
+
+func (s *Service) DeleteTransitGatewayConnection(options *tgapiv1.DeleteTransitGatewayConnectionOptions) (*core.DetailedResponse, error) {
+	return s.tgClient.DeleteTransitGatewayConnection(options)
 }
