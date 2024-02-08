@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -44,6 +43,7 @@ import (
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/cloud/scope"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/powervs"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/endpoints"
+	genUtil "sigs.k8s.io/cluster-api-provider-ibmcloud/util"
 )
 
 // IBMPowerVSClusterReconciler reconciles a IBMPowerVSCluster object.
@@ -116,7 +116,7 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 	}
 
 	// check for annotation set for cluster resource and decide on proceeding with infra creation.
-	if !createInfra(clusterScope) {
+	if !genUtil.CreateInfra(*clusterScope.IBMPowerVSCluster) {
 		clusterScope.IBMPowerVSCluster.Status.Ready = true
 		return ctrl.Result{}, nil
 	}
@@ -176,12 +176,12 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 		return reconcile.Result{}, err
 	}
 
-	//// reconcile COSInstance
-	//clusterScope.Info("Reconciling COSInstance")
-	//if err := clusterScope.ReconcileCOSInstance(); err != nil {
-	//	conditions.MarkFalse(powerVSCluster, infrav1beta2.COSInstanceReadyCondition, infrav1beta2.COSInstanceReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
-	//	return reconcile.Result{}, err
-	//}
+	// reconcile COSInstance
+	clusterScope.Info("Reconciling COSInstance")
+	if err := clusterScope.ReconcileCOSInstance(); err != nil {
+		conditions.MarkFalse(powerVSCluster, infrav1beta2.COSInstanceReadyCondition, infrav1beta2.COSInstanceReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
+		return reconcile.Result{}, err
+	}
 
 	// update cluster object with loadbalancer host
 	loadBalancer := clusterScope.PublicLoadBalancer()
@@ -206,23 +206,6 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 	return ctrl.Result{}, nil
 }
 
-// createInfra checks whether required annotation is set for resource to decide on infra creation.
-func createInfra(clusterScope *scope.PowerVSClusterScope) bool {
-	annotations := clusterScope.InfraCluster().GetAnnotations()
-	if len(annotations) == 0 {
-		return false
-	}
-	value, found := annotations[infrav1beta2.CreateInfrastructureAnnotation]
-	if !found {
-		return false
-	}
-	createInfra, err := strconv.ParseBool(value)
-	if err != nil {
-		clusterScope.Error(err, "error fetching annotations from cluster object")
-	}
-	return createInfra
-}
-
 func (r *IBMPowerVSClusterReconciler) reconcileDelete(ctx context.Context, clusterScope *scope.PowerVSClusterScope) (ctrl.Result, error) {
 	cluster := clusterScope.IBMPowerVSCluster
 
@@ -231,7 +214,7 @@ func (r *IBMPowerVSClusterReconciler) reconcileDelete(ctx context.Context, clust
 	}
 
 	// check for annotation set for cluster resource and decide on proceeding with infra deletion.
-	if !createInfra(clusterScope) {
+	if !genUtil.CreateInfra(*clusterScope.IBMPowerVSCluster) {
 		controllerutil.RemoveFinalizer(cluster, infrav1beta2.IBMPowerVSClusterFinalizer)
 		return ctrl.Result{}, nil
 	}
