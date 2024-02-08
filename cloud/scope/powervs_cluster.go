@@ -20,6 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/IBM-Cloud/power-go-client/ibmpisession"
 	"github.com/IBM-Cloud/power-go-client/power/models"
 	"github.com/IBM/go-sdk-core/v5/core"
@@ -31,7 +34,6 @@ import (
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/go-logr/logr"
 	"k8s.io/klog/v2/klogr"
-	"os"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/cos"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/globalcatalog"
 
@@ -194,6 +196,10 @@ func NewPowerVSClusterScope(params PowerVSClusterScopeParams) (*PowerVSClusterSc
 	}
 	if params.IBMPowerVSCluster.Spec.VPC == nil || params.IBMPowerVSCluster.Spec.VPC.Region == nil {
 		return nil, fmt.Errorf("error failed to generate vpc client as VPC info is nil")
+	}
+
+	if params.Logger.V(DEBUGLEVEL).Enabled() {
+		core.SetLoggingLevel(core.LevelDebug)
 	}
 
 	svcEndpoint := endpoints.FetchVPCEndpoint(*params.IBMPowerVSCluster.Spec.VPC.Region, params.ServiceEndpoint)
@@ -512,7 +518,7 @@ func (s *PowerVSClusterScope) ReconcileServiceInstance() error {
 		if serviceInstance == nil {
 			return fmt.Errorf("error failed to get service instance with id %s", serviceInstanceID)
 		}
-		if *serviceInstance.State != "active" {
+		if *serviceInstance.State != string(infrav1beta2.ServiceInstanceStateActive) {
 			return fmt.Errorf("service instance not in active state, current state: %s", *serviceInstance.State)
 		}
 		s.Info("Found service instance and its in active state", "id", serviceInstanceID)
@@ -550,7 +556,7 @@ func (s *PowerVSClusterScope) checkServiceInstance() (string, error) {
 		s.Info("Not able to find service instance", "service instance", s.IBMPowerVSCluster.Spec.ServiceInstance)
 		return "", nil
 	}
-	if *serviceInstance.State != "active" {
+	if *serviceInstance.State != string(infrav1beta2.ServiceInstanceStateActive) {
 		s.Info("Service instance not in active state", "service instance", s.IBMPowerVSCluster.Spec.ServiceInstance, "state", *serviceInstance.State)
 		return "", fmt.Errorf("service instance not in active state, current state: %s", *serviceInstance.State)
 	}
@@ -1328,7 +1334,7 @@ func (s *PowerVSClusterScope) checkCOSServiceInstance() (*resourcecontrollerv2.R
 		s.Info("cos service instance is nil", "name", s.COSInstance().Name)
 		return nil, nil
 	}
-	if *serviceInstance.State != "active" {
+	if *serviceInstance.State != string(infrav1beta2.ServiceInstanceStateActive) {
 		s.Info("cos service instance not in active state", "current state", *serviceInstance.State)
 		return nil, fmt.Errorf("cos instance not in active state, current state: %s", *serviceInstance.State)
 	}
@@ -1470,29 +1476,68 @@ func (s *PowerVSClusterScope) GetServiceName(resourceType ResourceType) *string 
 
 // DeleteLoadBalancer deletes loadBalancer.
 func (s *PowerVSClusterScope) DeleteLoadBalancer() error {
-	if s.IBMPowerVSCluster.Status.LoadBalancers == nil {
+	if !s.deleteResource(LoadBalancer) {
 		return nil
 	}
+
 	for _, lb := range s.IBMPowerVSCluster.Status.LoadBalancers {
-		if lb.ControllerCreated == nil || !*lb.ControllerCreated {
-			return nil
+		if lb.ID != nil {
+			lb, _, err := s.IBMVPCClient.GetLoadBalancer(&vpcv1.GetLoadBalancerOptions{
+				ID: lb.ID,
+			})
+
+			if err != nil {
+				if strings.Contains(err.Error(), "cannot be found") {
+					return nil
+				}
+				return fmt.Errorf("error fetching the load balancer: %w", err)
+			}
+
+			if lb != nil && lb.ProvisioningStatus != nil && *lb.ProvisioningStatus != string(infrav1beta2.VPCLoadBalancerStateDeletePending) {
+				_, err = s.IBMVPCClient.DeleteLoadBalancer(&vpcv1.DeleteLoadBalancerOptions{
+					ID: lb.ID,
+				})
+				if err != nil {
+					s.Error(err, "error deleting the load balancer")
+					return err
+				}
+				s.Info("Load balancer successfully deleted")
+			}
 		}
-		//	Add logic to delete individual lb
 	}
+
 	return nil
 }
 
 // DeleteVPCSubnet deletes VPC subnet.
 func (s *PowerVSClusterScope) DeleteVPCSubnet() error {
-	if s.IBMPowerVSCluster.Status.VPCSubnet == nil {
+	if !s.deleteResource(Subnet) {
 		return nil
 	}
+
 	for _, subnet := range s.IBMPowerVSCluster.Status.VPCSubnet {
-		if subnet.ControllerCreated == nil || !*subnet.ControllerCreated {
-			return nil
+		if subnet.ID != nil {
+			net, _, err := s.IBMVPCClient.GetSubnet(&vpcv1.GetSubnetOptions{
+				ID: subnet.ID,
+			})
+
+			if err != nil {
+				if strings.Contains(err.Error(), "Subnet not found") {
+					return nil
+				}
+				return fmt.Errorf("error fetching the subnet: %w", err)
+			}
+
+			_, err = s.IBMVPCClient.DeleteSubnet(&vpcv1.DeleteSubnetOptions{
+				ID: net.ID,
+			})
+			if err != nil {
+				return fmt.Errorf("error deleting VPC subnet: %w", err)
+			}
+			s.Info("VPC subnet successfully deleted")
 		}
-		//	Add logic to delete individual subnet
 	}
+
 	return nil
 }
 
@@ -1501,6 +1546,28 @@ func (s *PowerVSClusterScope) DeleteVPC() error {
 	if !s.deleteResource(VPC) {
 		return nil
 	}
+
+	if s.IBMPowerVSCluster.Status.VPC.ID != nil {
+		vpc, _, err := s.IBMVPCClient.GetVPC(&vpcv1.GetVPCOptions{
+			ID: s.IBMPowerVSCluster.Status.VPC.ID,
+		})
+
+		if err != nil {
+			if strings.Contains(err.Error(), "VPC not found") {
+				return nil
+			}
+			return fmt.Errorf("error fetching the VPC: %w", err)
+		}
+
+		_, err = s.IBMVPCClient.DeleteVPC(&vpcv1.DeleteVPCOptions{
+			ID: vpc.ID,
+		})
+		if err != nil {
+			return fmt.Errorf("error deleting VPC: %w", err)
+		}
+		s.Info("VPC successfully deleted")
+	}
+
 	return nil
 }
 
@@ -1509,14 +1576,50 @@ func (s *PowerVSClusterScope) DeleteTransitGateway() error {
 	if !s.deleteResource(TransitGateway) {
 		return nil
 	}
-	return nil
-}
 
-// DeleteNetwork deletes network.
-func (s *PowerVSClusterScope) DeleteNetwork() error {
-	if !s.deleteResource(Network) {
-		return nil
+	if s.IBMPowerVSCluster.Status.TransitGateway.ID != nil {
+		tg, _, err := s.TransitGatewayClient.GetTransitGateway(&tgapiv1.GetTransitGatewayOptions{
+			ID: s.IBMPowerVSCluster.Status.TransitGateway.ID,
+		})
+
+		if err != nil {
+			if strings.Contains(err.Error(), "gateway was not found") {
+				return nil
+			}
+			return fmt.Errorf("error fetching the transit gateway: %w", err)
+		}
+
+		tgConnections, _, err := s.TransitGatewayClient.ListTransitGatewayConnections(&tgapiv1.ListTransitGatewayConnectionsOptions{
+			TransitGatewayID: tg.ID,
+		})
+		if err != nil {
+			return fmt.Errorf("error listing transit gateway connections: %w", err)
+		}
+
+		if tgConnections.Connections != nil && len(tgConnections.Connections) > 0 {
+			for _, conn := range tgConnections.Connections {
+				if conn.Status != nil && *conn.Status != string(infrav1beta2.TransitGatewayStateDeletePending) {
+					_, err := s.TransitGatewayClient.DeleteTransitGatewayConnection(&tgapiv1.DeleteTransitGatewayConnectionOptions{
+						ID:               conn.ID,
+						TransitGatewayID: tg.ID,
+					})
+					if err != nil {
+						return fmt.Errorf("error deleting transit gateway connection: %w", err)
+					}
+				}
+			}
+		}
+
+		_, err = s.TransitGatewayClient.DeleteTransitGateway(&tgapiv1.DeleteTransitGatewayOptions{
+			ID: s.IBMPowerVSCluster.Status.TransitGateway.ID,
+		})
+
+		if err != nil {
+			return fmt.Errorf("error deleting transit gateway: %w", err)
+		}
+		s.Info("Transit gateway successfully deleted")
 	}
+
 	return nil
 }
 
@@ -1525,6 +1628,23 @@ func (s *PowerVSClusterScope) DeleteDHCPServer() error {
 	if !s.deleteResource(DHCPServer) {
 		return nil
 	}
+
+	if s.IBMPowerVSCluster.Status.DHCPServer.ID != nil {
+		server, err := s.IBMPowerVSClient.GetDHCPServer(*s.IBMPowerVSCluster.Status.DHCPServer.ID)
+		if err != nil {
+			if strings.Contains(err.Error(), "dhcp server does not exist") {
+				return nil
+			}
+			return fmt.Errorf("error fetching DHCP server: %w", err)
+		}
+
+		err = s.IBMPowerVSClient.DeleteDHCPServer(*server.ID)
+		if err != nil {
+			return fmt.Errorf("error deleting the DHCP server: %w", err)
+		}
+		s.Info("DHCP server successfully deleted")
+	}
+
 	return nil
 }
 
@@ -1533,22 +1653,98 @@ func (s *PowerVSClusterScope) DeleteServiceInstance() error {
 	if !s.deleteResource(ServiceInstance) {
 		return nil
 	}
+
+	if s.IBMPowerVSCluster.Status.ServiceInstance.ID != nil {
+		serviceInstance, _, err := s.ResourceClient.GetResourceInstance(&resourcecontrollerv2.GetResourceInstanceOptions{
+			ID: s.IBMPowerVSCluster.Status.ServiceInstance.ID,
+		})
+		if err != nil {
+			return fmt.Errorf("error fetching service instance: %w", err)
+		}
+
+		if serviceInstance != nil && *serviceInstance.State == string(infrav1beta2.ServiceInstanceStateRemoved) {
+			return nil
+		}
+
+		servers, err := s.IBMPowerVSClient.GetAllDHCPServers()
+		if err != nil {
+			return fmt.Errorf("error fetching networks in the service instance: %w", err)
+		}
+
+		if servers != nil && len(servers) > 0 {
+			return fmt.Errorf("cannot delete service instance as network is not yet deleted")
+
+		}
+
+		_, err = s.ResourceClient.DeleteResourceInstance(&resourcecontrollerv2.DeleteResourceInstanceOptions{
+			ID: serviceInstance.ID,
+			//Recursive: pointer.Bool(true),
+		})
+
+		if err != nil {
+			s.Error(err, "error deleting Power VS service instance")
+			return err
+		}
+		s.Info("Service instance successfully deleted")
+	}
+	return nil
+
+}
+
+// DeleteServiceInstance deletes COS instance.
+func (s *PowerVSClusterScope) DeleteCosInstance() error {
+	if !s.deleteResource(COSInstance) {
+		return nil
+	}
+
+	if s.IBMPowerVSCluster.Status.COSInstance.ID != nil {
+		cosInstance, _, err := s.ResourceClient.GetResourceInstance(&resourcecontrollerv2.GetResourceInstanceOptions{
+			ID: s.IBMPowerVSCluster.Status.COSInstance.ID,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "COS instance unavailable") {
+				return nil
+			}
+			return fmt.Errorf("error fetching COS instance: %w", err)
+		}
+
+		_, err = s.ResourceClient.DeleteResourceInstance(&resourcecontrollerv2.DeleteResourceInstanceOptions{
+			ID:        cosInstance.ID,
+			Recursive: pointer.Bool(true),
+		})
+		if err != nil {
+			s.Error(err, "error deleting COS service instance")
+			return err
+		}
+		s.Info("COS instance successfully deleted")
+	}
+
 	return nil
 }
 
 // deleteResource returns true or false to decide on deleting provided resource.
 func (s *PowerVSClusterScope) deleteResource(resourceType ResourceType) bool {
 	switch resourceType {
-	case ServiceInstance:
-		serviceInstance := s.IBMPowerVSCluster.Status.ServiceInstance
-		if serviceInstance == nil || serviceInstance.ControllerCreated == nil || !*serviceInstance.ControllerCreated {
+	case LoadBalancer:
+		lbs := s.IBMPowerVSCluster.Status.LoadBalancers
+		if lbs == nil {
 			return false
 		}
+		for _, lb := range lbs {
+			if lb.ControllerCreated == nil || !*lb.ControllerCreated {
+				return false
+			}
+		}
 		return true
-	case Network:
-		network := s.IBMPowerVSCluster.Status.Network
-		if network == nil || network.ControllerCreated == nil || !*network.ControllerCreated {
+	case Subnet:
+		subnets := s.IBMPowerVSCluster.Status.VPCSubnet
+		if subnets == nil {
 			return false
+		}
+		for _, net := range subnets {
+			if net.ControllerCreated == nil || !*net.ControllerCreated {
+				return false
+			}
 		}
 		return true
 	case VPC:
@@ -1557,9 +1753,27 @@ func (s *PowerVSClusterScope) deleteResource(resourceType ResourceType) bool {
 			return false
 		}
 		return true
+	case ServiceInstance:
+		serviceInstance := s.IBMPowerVSCluster.Status.ServiceInstance
+		if serviceInstance == nil || serviceInstance.ControllerCreated == nil || !*serviceInstance.ControllerCreated {
+			return false
+		}
+		return true
 	case TransitGateway:
 		transitGateway := s.IBMPowerVSCluster.Status.TransitGateway
 		if transitGateway == nil || transitGateway.ControllerCreated == nil || !*transitGateway.ControllerCreated {
+			return false
+		}
+		return true
+	case DHCPServer:
+		dhcpServer := s.IBMPowerVSCluster.Status.DHCPServer
+		if dhcpServer == nil || dhcpServer.ControllerCreated == nil || !*dhcpServer.ControllerCreated {
+			return false
+		}
+		return true
+	case COSInstance:
+		cosInstance := s.IBMPowerVSCluster.Status.COSInstance
+		if cosInstance == nil || cosInstance.ControllerCreated == nil || !*cosInstance.ControllerCreated {
 			return false
 		}
 		return true
