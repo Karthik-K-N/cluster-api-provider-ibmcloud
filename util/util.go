@@ -19,21 +19,11 @@ package util
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
+	"strconv"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1beta2 "sigs.k8s.io/cluster-api-provider-ibmcloud/api/v1beta2"
-)
-
-const (
-	//PowerVSZone = "dal10"
-	//VPCZone     = "us-south-1"
-
-	PowerVSZone = "dal10"
-	VPCZone     = "us-south-1"
-	VPCRegion   = "us-south"
 )
 
 // GetClusterByName finds and return a Cluster object using the specified params.
@@ -51,20 +41,24 @@ func GetClusterByName(ctx context.Context, c client.Client, namespace, name stri
 	return cluster, nil
 }
 
-// ConstructVPCRegionFromZone returns region based on location/zone.
-func ConstructVPCRegionFromZone(zone string) string {
-	var regex string
-	if strings.Contains(zone, "-") {
-		// it's a region or AZ
-		regex = "-[0-9]+$"
-	} else {
-		// it's a datacenter
-		regex = "[0-9]+$"
+// CreateInfra checks for annotations set on IBMPowerVSCluster object to determine cluster creation workflow
+func CreateInfra(cluster infrav1beta2.IBMPowerVSCluster) bool {
+	annotations := cluster.GetAnnotations()
+	if len(annotations) == 0 {
+		return false
 	}
-
-	reg, _ := regexp.Compile(regex)
-	return reg.ReplaceAllString(zone, "")
+	value, found := annotations[infrav1beta2.CreateInfrastructureAnnotation]
+	if !found {
+		return false
+	}
+	createInfra, err := strconv.ParseBool(value)
+	if err != nil {
+		return false
+	}
+	return createInfra
 }
+
+//TODO: Move this to powervs-utils
 
 // Region describes respective IBM Cloud COS region, VPC region and Zones associated with a region in Power VS.
 type Region struct {

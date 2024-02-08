@@ -27,7 +27,6 @@ import (
 	"os"
 	"path"
 	"regexp"
-	"sigs.k8s.io/cluster-api/util"
 	"strconv"
 	"strings"
 
@@ -53,6 +52,7 @@ import (
 
 	capiv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors"
+	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 
 	infrav1beta2 "sigs.k8s.io/cluster-api-provider-ibmcloud/api/v1beta2"
@@ -63,7 +63,7 @@ import (
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/endpoints"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/options"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/record"
-	putil "sigs.k8s.io/cluster-api-provider-ibmcloud/util"
+	genUtil "sigs.k8s.io/cluster-api-provider-ibmcloud/util"
 )
 
 // PowerVSMachineScopeParams defines the input parameters used to create a new PowerVSMachineScope.
@@ -82,9 +82,8 @@ type PowerVSMachineScopeParams struct {
 // PowerVSMachineScope defines a scope defined around a Power VS Machine.
 type PowerVSMachineScope struct {
 	logr.Logger
-	Client            client.Client
-	patchHelper       *patch.Helper
-	serviceInstanceID string
+	Client      client.Client
+	patchHelper *patch.Helper
 
 	IBMPowerVSClient  powervs.PowerVS
 	IBMVPCClient      vpc.Vpc
@@ -153,36 +152,36 @@ func NewPowerVSMachineScope(params PowerVSMachineScopeParams) (scope *PowerVSMac
 		scope.Logger.V(3).Info("Overriding the default resource controller endpoint")
 	}
 
-	region := endpoints.ConstructRegionFromZone(*params.IBMPowerVSCluster.Spec.Zone)
-	scope.SetRegion(region)
-	scope.SetZone(*params.IBMPowerVSCluster.Spec.Zone)
-
-	var serviceInstanceID string
+	var serviceInstanceID, serviceInstanceName string
 	if params.IBMPowerVSMachine.Spec.ServiceInstanceID != "" {
 		serviceInstanceID = params.IBMPowerVSMachine.Spec.ServiceInstanceID
 	} else {
-		name := fmt.Sprintf("%s-%s", params.IBMPowerVSCluster.GetName(), "serviceInstance")
+		serviceInstanceName = fmt.Sprintf("%s-%s", params.IBMPowerVSCluster.GetName(), "serviceInstance")
 		if params.IBMPowerVSCluster.Spec.ServiceInstance != nil && params.IBMPowerVSCluster.Spec.ServiceInstance.Name != nil {
-			name = *params.IBMPowerVSCluster.Spec.ServiceInstance.Name
+			serviceInstanceName = *params.IBMPowerVSCluster.Spec.ServiceInstance.Name
 		}
-		serviceInstance, err := rc.GetServiceInstance("", name)
-		if err != nil {
-			params.Logger.Error(err, "error failed to get service instance id from name", "name", name)
-			return nil, err
-		}
-		if serviceInstance == nil {
-			return nil, fmt.Errorf("service instance %s is not yet created", name)
-		}
-		if *serviceInstance.State != "active" {
-			return nil, fmt.Errorf("service instance %s is not in active state", name)
-		}
-		serviceInstanceID = *serviceInstance.GUID
 	}
+	serviceInstance, err := rc.GetServiceInstance(serviceInstanceID, serviceInstanceName)
+	if err != nil {
+		params.Logger.Error(err, "error failed to get service instance details", "name", serviceInstanceName, "id", serviceInstanceID)
+		return nil, err
+	}
+	if serviceInstance == nil {
+		return nil, fmt.Errorf("service instance %s is not yet created", serviceInstanceName)
+	}
+	if *serviceInstance.State != "active" {
+		return nil, fmt.Errorf("service instance name: %s id: %s is not in active state", serviceInstanceName, serviceInstanceID)
+	}
+	serviceInstanceID = *serviceInstance.GUID
+
+	region := endpoints.ConstructRegionFromZone(*serviceInstance.RegionID)
+	scope.SetRegion(region)
+	scope.SetZone(*serviceInstance.RegionID)
 
 	serviceOptions := powervs.ServiceOptions{
 		IBMPIOptions: &ibmpisession.IBMPIOptions{
 			Debug: params.Logger.V(DEBUGLEVEL).Enabled(),
-			Zone:  *params.IBMPowerVSCluster.Spec.Zone,
+			Zone:  *serviceInstance.RegionID,
 		},
 		CloudInstanceID: serviceInstanceID,
 	}
@@ -200,9 +199,16 @@ func NewPowerVSMachineScope(params PowerVSMachineScopeParams) (scope *PowerVSMac
 	}
 	c.WithClients(serviceOptions)
 
+	scope.IBMPowerVSClient = c
+	scope.DHCPIPCacheStore = params.DHCPIPCacheStore
+
+	if !genUtil.CreateInfra(*params.IBMPowerVSCluster) {
+		return scope, nil
+	}
+
 	var vpcRegion string
 	if params.IBMPowerVSCluster.Spec.VPC == nil || params.IBMPowerVSCluster.Spec.VPC.Region == nil {
-		vpcRegion, err = putil.VPCRegionForPowerVSRegion(scope.GetRegion())
+		vpcRegion, err = genUtil.VPCRegionForPowerVSRegion(scope.GetRegion())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create vpc client, error getting vpc region %v", err)
 		}
@@ -216,8 +222,6 @@ func NewPowerVSMachineScope(params PowerVSMachineScopeParams) (scope *PowerVSMac
 	}
 
 	scope.IBMVPCClient = vpcClient
-	scope.IBMPowerVSClient = c
-	scope.DHCPIPCacheStore = params.DHCPIPCacheStore
 	scope.ResourceClient = rc
 	return scope, nil
 }

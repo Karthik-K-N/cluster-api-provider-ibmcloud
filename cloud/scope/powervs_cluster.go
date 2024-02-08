@@ -165,6 +165,45 @@ func NewPowerVSClusterScope(params PowerVSClusterScopeParams) (*PowerVSClusterSc
 		return nil, err
 	}
 
+	options := powervs.ServiceOptions{
+		IBMPIOptions: &ibmpisession.IBMPIOptions{
+			Debug: params.Logger.V(DEBUGLEVEL).Enabled(),
+		},
+	}
+
+	if params.IBMPowerVSCluster.Spec.ServiceInstanceID != "" {
+		rc, err := resourcecontroller.NewService(resourcecontroller.ServiceOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		// Fetch the resource controller endpoint.
+		if rcEndpoint := endpoints.FetchRCEndpoint(params.ServiceEndpoint); rcEndpoint != "" {
+			if err := rc.SetServiceURL(rcEndpoint); err != nil {
+				return nil, fmt.Errorf("failed to set resource controller endpoint: %w", err)
+			}
+		}
+
+		res, _, err := rc.GetResourceInstance(
+			&resourcecontrollerv2.GetResourceInstanceOptions{
+				ID: core.StringPtr(params.IBMPowerVSCluster.Spec.ServiceInstanceID),
+			})
+		if err != nil {
+			err = fmt.Errorf("failed to get resource instance: %w", err)
+			return nil, err
+		}
+		options.Zone = *res.RegionID
+		options.CloudInstanceID = params.IBMPowerVSCluster.Spec.ServiceInstanceID
+	} else {
+		options.Zone = *params.IBMPowerVSCluster.Spec.Zone
+	}
+
+	// TODO(karhtik-k-n): may be optimize NewService to use the session created here
+	powerVSClient, err := powervs.NewService(options)
+	if err != nil {
+		return nil, fmt.Errorf("error failed to create power vs client %w", err)
+	}
+
 	auth, err := authenticator.GetAuthenticator()
 	if err != nil {
 		return nil, fmt.Errorf("error failed to create authenticator %w", err)
@@ -177,23 +216,26 @@ func NewPowerVSClusterScope(params PowerVSClusterScopeParams) (*PowerVSClusterSc
 	sessionOptions := &ibmpisession.IBMPIOptions{
 		Authenticator: auth,
 		UserAccount:   account,
-		Zone:          *params.IBMPowerVSCluster.Spec.Zone,
+		Zone:          options.Zone,
 	}
 	session, err := ibmpisession.NewIBMPISession(sessionOptions)
 	if err != nil {
 		return nil, fmt.Errorf("error failed to get power vs session %w", err)
 	}
-	options := powervs.ServiceOptions{
-		IBMPIOptions: &ibmpisession.IBMPIOptions{
-			Debug: params.Logger.V(DEBUGLEVEL).Enabled(),
-			Zone:  *params.IBMPowerVSCluster.Spec.Zone,
-		},
+
+	if !genUtil.CreateInfra(*params.IBMPowerVSCluster) {
+		return &PowerVSClusterScope{
+			session:           session,
+			Logger:            params.Logger,
+			Client:            params.Client,
+			patchHelper:       helper,
+			Cluster:           params.Cluster,
+			IBMPowerVSCluster: params.IBMPowerVSCluster,
+			ServiceEndpoint:   params.ServiceEndpoint,
+			IBMPowerVSClient:  powerVSClient,
+		}, nil
 	}
-	// TODO(karhtik-k-n): may be optimize NewService to use the session created here
-	powerVSClient, err := powervs.NewService(options)
-	if err != nil {
-		return nil, fmt.Errorf("error failed to create power vs client %w", err)
-	}
+
 	if params.IBMPowerVSCluster.Spec.VPC == nil || params.IBMPowerVSCluster.Spec.VPC.Region == nil {
 		return nil, fmt.Errorf("error failed to generate vpc client as VPC info is nil")
 	}
