@@ -1,8 +1,6 @@
 module sigs.k8s.io/cluster-api-provider-ibmcloud/hack/tools
 
-go 1.21
-
-toolchain go1.21.4
+go 1.20
 
 replace sigs.k8s.io/cluster-api => sigs.k8s.io/cluster-api v1.6.1
 
