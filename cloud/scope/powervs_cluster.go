@@ -376,6 +376,12 @@ func (s *PowerVSClusterScope) SetStatus(resourceType ResourceType, resource infr
 			return
 		}
 		s.IBMPowerVSCluster.Status.DHCPServer.Set(resource)
+	case COSInstance:
+		if s.IBMPowerVSCluster.Status.COSInstance == nil {
+			s.IBMPowerVSCluster.Status.COSInstance = &resource
+			return
+		}
+		s.IBMPowerVSCluster.Status.COSInstance.Set(resource)
 	}
 }
 
