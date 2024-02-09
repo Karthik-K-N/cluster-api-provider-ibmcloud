@@ -176,12 +176,12 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 		return reconcile.Result{}, err
 	}
 
-	//// reconcile COSInstance
-	//clusterScope.Info("Reconciling COSInstance")
-	//if err := clusterScope.ReconcileCOSInstance(); err != nil {
-	//	conditions.MarkFalse(powerVSCluster, infrav1beta2.COSInstanceReadyCondition, infrav1beta2.COSInstanceReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
-	//	return reconcile.Result{}, err
-	//}
+	// reconcile COSInstance
+	clusterScope.Info("Reconciling COSInstance")
+	if err := clusterScope.ReconcileCOSInstance(); err != nil {
+		conditions.MarkFalse(powerVSCluster, infrav1beta2.COSInstanceReadyCondition, infrav1beta2.COSInstanceReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
+		return reconcile.Result{}, err
+	}
 
 	// update cluster object with loadbalancer host
 	loadBalancer := clusterScope.PublicLoadBalancer()
