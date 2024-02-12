@@ -528,8 +528,9 @@ func TestIBMPowerVSMachineReconciler_ReconcileOperations(t *testing.T) {
 						Ready: true,
 					},
 				},
-				IBMPowerVSClient: mockpowervs,
-				DHCPIPCacheStore: cache.NewTTLStore(powervs.CacheKeyFunc, powervs.CacheTTL),
+				IBMPowerVSClient:  mockpowervs,
+				DHCPIPCacheStore:  cache.NewTTLStore(powervs.CacheKeyFunc, powervs.CacheTTL),
+				IBMPowerVSCluster: &infrav1beta2.IBMPowerVSCluster{},
 			}
 
 			instanceReferences := &models.PVMInstances{
