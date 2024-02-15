@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"path"
 	"regexp"
 	"strconv"
@@ -56,6 +55,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 
 	infrav1beta2 "sigs.k8s.io/cluster-api-provider-ibmcloud/api/v1beta2"
+	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/authenticator"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/cos"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/powervs"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/resourcecontroller"
@@ -378,35 +378,13 @@ func (m *PowerVSMachineScope) createIgnitionData(data []byte) (string, error) {
 		return "", fmt.Errorf("got empty data")
 	}
 
-	serviceInstanceName := fmt.Sprintf("%s-%s", m.IBMPowerVSCluster.GetName(), "cosInstance")
-	serviceInstance, err := m.ResourceClient.GetInstanceByName(serviceInstanceName, cosResourceID, cosResourcePlanID)
+	cosClient, err := m.createCOSClient()
 	if err != nil {
-		m.Error(err, "failed to get cos service instance", "name", serviceInstanceName)
-		return "", err
-	}
-	if serviceInstance == nil {
-		m.Info("cos service instance is nil")
-		return "", err
-	}
-	if *serviceInstance.State != "active" {
-		m.Info("cos service instance is not in active state", "state", *serviceInstance.State)
-		return "", fmt.Errorf("cos instance not in active state, current state: %s", *serviceInstance.State)
+		m.Error(err, "failed to create cosClient")
+		return "", fmt.Errorf("failed to create cosClient %w", err)
 	}
 	key := m.bootstrapDataKey()
 	m.Info("bootstrap data key", "key", key)
-
-	//TODO(karthik-k-n): Fix me
-	apiKey := os.Getenv("IBMCLOUD_API_KEY")
-	if apiKey == "" {
-		fmt.Printf("ibmcloud api key is not provided, set %s environmental variable", "IBMCLOUD_API_KEY")
-	}
-	apiKey = APIKEY
-
-	cosClient, err := cos.NewService(cos.ServiceOptions{}, m.IBMPowerVSCluster.Spec.CosInstance.BucketRegion, apiKey, *serviceInstance.GUID)
-	if err != nil {
-		m.Error(err, "failed to create cos client")
-		return "", fmt.Errorf("failed to create cos client: %w", err)
-	}
 
 	bucket := m.IBMPowerVSCluster.Spec.CosInstance.BucketName
 	if _, err := cosClient.PutObject(&s3.PutObjectInput{
@@ -505,6 +483,71 @@ func (m *PowerVSMachineScope) DeleteMachine() error {
 	}
 	record.Eventf(m.IBMPowerVSMachine, "SuccessfulDeleteInstance", "Deleted Instance %q", m.IBMPowerVSMachine.Name)
 	return nil
+}
+
+// DeleteMachineIgnition deletes the ignition associated with machine.
+func (m *PowerVSMachineScope) DeleteMachineIgnition() error {
+	cosClient, err := m.createCOSClient()
+	if err != nil {
+		m.Error(err, "failed to create cosClient")
+		return fmt.Errorf("failed to create cosClient %w", err)
+	}
+
+	bucket := m.IBMPowerVSCluster.Spec.CosInstance.BucketName
+	objs, _ := cosClient.ListObjects(&s3.ListObjectsInput{
+		Bucket: aws.String(bucket),
+	})
+
+	for _, j := range objs.Contents {
+		if strings.Contains(*j.Key, m.Name()) {
+			if _, err := cosClient.DeleteObject(&s3.DeleteObjectInput{
+				Bucket: aws.String(bucket),
+				Key:    j.Key,
+			}); err != nil {
+				m.Error(err, "failed to delete cos object")
+				record.Warnf(m.IBMPowerVSMachine, "FailedDeleteMachineIgnition", "Failed machine ignition deletion - %v", err)
+				return fmt.Errorf("failed to delete cos object %w", err)
+			}
+		}
+	}
+	record.Eventf(m.IBMPowerVSMachine, "SuccessfulDeleteMachineIgnition", "Deleted machine ignition %q", m.IBMPowerVSMachine.Name)
+	return nil
+}
+
+// createCOSClient creates a new cosClient from the supplied parameters.
+func (m *PowerVSMachineScope) createCOSClient() (*cos.Service, error) {
+	cosInstanceName := m.IBMPowerVSCluster.Spec.CosInstance.Name
+	serviceInstance, err := m.ResourceClient.GetInstanceByName(cosInstanceName, cosResourceID, cosResourcePlanID)
+	if err != nil {
+		m.Error(err, "failed to get cos service instance", "name", cosInstanceName)
+		return nil, err
+	}
+	if serviceInstance == nil {
+		m.Info("cos service instance is nil")
+		return nil, err
+	}
+	if *serviceInstance.State != "active" {
+		m.Info("cos service instance is not in active state", "state", *serviceInstance.State)
+		return nil, fmt.Errorf("cos instance not in active state, current state: %s", *serviceInstance.State)
+	}
+
+	props, err := authenticator.GetProperties()
+	if err != nil {
+		m.Error(err, "error while fetching service properties")
+		return nil, fmt.Errorf("error while fetching service properties: %w", err)
+	}
+	apiKey := props["APIKEY"]
+	if len(apiKey) == 0 {
+		fmt.Printf("ibmcloud api key is not provided, set %s environmental variable", "IBMCLOUD_API_KEY")
+	}
+
+	cosClient, err := cos.NewService(cos.ServiceOptions{}, m.IBMPowerVSCluster.Spec.CosInstance.BucketRegion, apiKey, *serviceInstance.GUID)
+	if err != nil {
+		m.Error(err, "failed to create cos client")
+		return nil, fmt.Errorf("failed to create cos client: %w", err)
+	}
+
+	return cosClient, nil
 }
 
 func (m *PowerVSMachineScope) GetRawBootstrapDataWithFormat() ([]byte, string, error) {
