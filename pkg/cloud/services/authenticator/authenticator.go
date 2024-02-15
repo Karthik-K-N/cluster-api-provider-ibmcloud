@@ -48,3 +48,12 @@ func GetAuthenticator() (core.Authenticator, error) {
 	}
 	return auth, nil
 }
+
+// GetProperties returns a map containing configuration properties for the specified service that are retrieved from external configuration sources.
+func GetProperties() (map[string]string, error) {
+	properties, err := core.GetServiceProperties(serviceIBMCloud)
+	if err != nil {
+		return nil, fmt.Errorf("error while fetching service properties")
+	}
+	return properties, nil
+}

@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/IBM-Cloud/power-go-client/ibmpisession"
@@ -61,9 +60,6 @@ const (
 	// PowerVS service and plan name
 	powerVSService     = "power-iaas"
 	powerVSServicePlan = "power-virtual-server-group"
-
-	//TODO: Remove this
-	APIKEY = ""
 )
 
 const (
@@ -1305,11 +1301,16 @@ func (s *PowerVSClusterScope) ReconcileCOSInstance() error {
 		s.SetStatus(COSInstance, infrav1beta2.ResourceReference{ID: cosServiceInstanceStatus.GUID, ControllerCreated: pointer.Bool(true)})
 	}
 
-	apiKey := os.Getenv("IBMCLOUD_API_KEY")
-	if apiKey == "" {
+	props, err := authenticator.GetProperties()
+	if err != nil {
+		s.Error(err, "error while fetching service properties")
+		return err
+	}
+
+	apiKey := props["APIKEY"]
+	if len(apiKey) == 0 {
 		fmt.Printf("ibmcloud api key is not provided, set %s environmental variable", "IBMCLOUD_API_KEY")
 	}
-	apiKey = APIKEY
 
 	cosClient, err := cos.NewService(cos.ServiceOptions{}, s.IBMPowerVSCluster.Spec.CosInstance.BucketRegion, apiKey, *cosServiceInstanceStatus.GUID)
 	if err != nil {

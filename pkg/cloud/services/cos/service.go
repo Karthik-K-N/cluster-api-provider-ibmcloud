@@ -67,6 +67,14 @@ func (s *Service) GetObjectRequest(input *s3.GetObjectInput) (*request.Request, 
 	return s.client.GetObjectRequest(input)
 }
 
+func (s *Service) ListObjects(input *s3.ListObjectsInput) (*s3.ListObjectsOutput, error) {
+	return s.client.ListObjects(input)
+}
+
+func (s *Service) DeleteObject(input *s3.DeleteObjectInput) (*s3.DeleteObjectOutput, error) {
+	return s.client.DeleteObject(input)
+}
+
 func (s *Service) PutPublicAccessBlock(input *s3.PutPublicAccessBlockInput) (*s3.PutPublicAccessBlockOutput, error) {
 	return s.client.PutPublicAccessBlock(input)
 }
