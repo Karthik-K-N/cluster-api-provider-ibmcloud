@@ -30,6 +30,7 @@ type Cos interface {
 	CreateBucketWithContext(ctx aws.Context, input *s3.CreateBucketInput, opts ...request.Option) (*s3.CreateBucketOutput, error)
 	PutObject(*s3.PutObjectInput) (*s3.PutObjectOutput, error)
 	GetObjectRequest(*s3.GetObjectInput) (*request.Request, *s3.GetObjectOutput)
-
+	ListObjects(input *s3.ListObjectsInput) (*s3.ListObjectsOutput, error)
+	DeleteObject(input *s3.DeleteObjectInput) (*s3.DeleteObjectOutput, error)
 	PutPublicAccessBlock(input *s3.PutPublicAccessBlockInput) (*s3.PutPublicAccessBlockOutput, error)
 }
