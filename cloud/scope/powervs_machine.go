@@ -47,6 +47,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2/klogr"
 	"k8s.io/utils/pointer"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	capiv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -98,7 +99,7 @@ type PowerVSMachineScope struct {
 }
 
 // NewPowerVSMachineScope creates a new PowerVSMachineScope from the supplied parameters.
-func NewPowerVSMachineScope(params PowerVSMachineScopeParams) (scope *PowerVSMachineScope, err error) {
+func NewPowerVSMachineScope(params PowerVSMachineScopeParams) (scope *PowerVSMachineScope, err error) { //nolint:gocyclo
 	scope = &PowerVSMachineScope{}
 
 	if params.Client == nil {
@@ -259,7 +260,7 @@ func (m *PowerVSMachineScope) CreateMachine() (*models.PVMInstanceReference, err
 		}
 	}
 
-	//TODO(karthik-k-n): Fix this
+	// TODO(karthik-k-n): Fix this
 	userData, userDataErr := m.resolveUserData()
 	if userDataErr != nil {
 		return nil, fmt.Errorf("error failed to resolve userdata %w", userDataErr)
@@ -397,7 +398,6 @@ func (m *PowerVSMachineScope) createIgnitionData(data []byte) (string, error) {
 	}
 
 	if exp := m.IBMPowerVSCluster.Spec.CosInstance.PresignedURLDuration; exp != nil {
-
 		m.Info("assigning presigned url", "exp", exp)
 		req, _ := cosClient.GetObjectRequest(&s3.GetObjectInput{
 			Bucket: aws.String(bucket),
@@ -413,7 +413,6 @@ func (m *PowerVSMachineScope) createIgnitionData(data []byte) (string, error) {
 	}
 
 	return objectURL.String(), nil
-
 }
 
 func (m *PowerVSMachineScope) ignitionUserData(userData []byte) ([]byte, error) {
@@ -461,6 +460,7 @@ func (m *PowerVSMachineScope) ignitionUserData(userData []byte) ([]byte, error) 
 	}
 }
 
+// UseIgnition returns true if user data format is of type 'ignition', else returns false.
 func (m *PowerVSMachineScope) UseIgnition(userDataFormat string) bool {
 	return userDataFormat == "ignition" || (m.IBMPowerVSMachine.Spec.Ignition != nil)
 }
@@ -537,7 +537,7 @@ func (m *PowerVSMachineScope) createCOSClient() (*cos.Service, error) {
 		return nil, fmt.Errorf("error while fetching service properties: %w", err)
 	}
 	apiKey := props["APIKEY"]
-	if len(apiKey) == 0 {
+	if apiKey == "" {
 		fmt.Printf("ibmcloud api key is not provided, set %s environmental variable", "IBMCLOUD_API_KEY")
 	}
 
@@ -550,6 +550,7 @@ func (m *PowerVSMachineScope) createCOSClient() (*cos.Service, error) {
 	return cosClient, nil
 }
 
+// GetRawBootstrapDataWithFormat returns the bootstrap data if present.
 func (m *PowerVSMachineScope) GetRawBootstrapDataWithFormat() ([]byte, string, error) {
 	if m.Machine.Spec.Bootstrap.DataSecretName == nil {
 		return nil, "", errors.New("error retrieving bootstrap data: linked Machine's bootstrap.dataSecretName is nil")
@@ -862,6 +863,7 @@ func (m *PowerVSMachineScope) SetProviderID(id *string) {
 	}
 }
 
+// GetMachineInternalIP returns the machine's internal IP.
 func (m *PowerVSMachineScope) GetMachineInternalIP() string {
 	for _, address := range m.IBMPowerVSMachine.Status.Addresses {
 		if address.Type == corev1.NodeInternalIP {
@@ -871,6 +873,7 @@ func (m *PowerVSMachineScope) GetMachineInternalIP() string {
 	return ""
 }
 
+// CreateVPCLoadBalancerPoolMember creates a member in load balaner pool.
 func (m *PowerVSMachineScope) CreateVPCLoadBalancerPoolMember() (*vpcv1.LoadBalancerPoolMember, error) {
 	for _, lb := range m.IBMPowerVSCluster.Spec.LoadBalancers {
 		var lbID *string
@@ -950,7 +953,7 @@ func (m *PowerVSMachineScope) CreateVPCLoadBalancerPoolMember() (*vpcv1.LoadBala
 			}
 			if *loadBalancer.ProvisioningStatus != string(infrav1beta2.VPCLoadBalancerStateActive) {
 				m.Info("Not able to update pool for loadBalancer , load balancer is not in active state", "loadbalancer", *loadBalancer.Name, "state", *loadBalancer.ProvisioningStatus)
-				return nil, fmt.Errorf("loadbalancer %s not in active state to update pool memeber", *loadBalancer.Name)
+				return nil, fmt.Errorf("loadbalancer %s not in active state to update pool member", *loadBalancer.Name)
 			}
 
 			options := &vpcv1.CreateLoadBalancerPoolMemberOptions{}

@@ -29,6 +29,7 @@ import (
 	"github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
 
 	"k8s.io/klog/v2/klogr"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -120,7 +121,7 @@ func NewPowerVSImageScope(params PowerVSImageScopeParams) (scope *PowerVSImageSc
 		if serviceInstance == nil {
 			return nil, fmt.Errorf("service instance %s is not yet created", name)
 		}
-		if *serviceInstance.State != "active" {
+		if *serviceInstance.State != string(infrav1beta2.ServiceInstanceStateActive) {
 			return nil, fmt.Errorf("service instance %s is not in active state", name)
 		}
 		serviceInstanceID = *serviceInstance.GUID

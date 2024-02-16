@@ -41,7 +41,7 @@ func GetClusterByName(ctx context.Context, c client.Client, namespace, name stri
 	return cluster, nil
 }
 
-// CreateInfra checks for annotations set on IBMPowerVSCluster object to determine cluster creation workflow
+// CreateInfra checks for annotations set on IBMPowerVSCluster object to determine cluster creation workflow.
 func CreateInfra(cluster infrav1beta2.IBMPowerVSCluster) bool {
 	annotations := cluster.GetAnnotations()
 	if len(annotations) == 0 {
@@ -58,7 +58,7 @@ func CreateInfra(cluster infrav1beta2.IBMPowerVSCluster) bool {
 	return createInfra
 }
 
-//TODO: Move this to powervs-utils
+//TODO: Move this to powervs-utils.
 
 // Region describes respective IBM Cloud COS region, VPC region and Zones associated with a region in Power VS.
 type Region struct {
@@ -190,7 +190,7 @@ func VPCRegionForPowerVSRegion(region string) (string, error) {
 	return "", fmt.Errorf("VPC region corresponding to a PowerVS region %s not found ", region)
 }
 
-// VPCZonesForPowerVSRegion returns the VPC zones associated with Power VS region
+// VPCZonesForPowerVSRegion returns the VPC zones associated with Power VS region.
 func VPCZonesForPowerVSRegion(region string) ([]string, error) {
 	if r, ok := Regions[region]; ok {
 		return r.VPCZones, nil

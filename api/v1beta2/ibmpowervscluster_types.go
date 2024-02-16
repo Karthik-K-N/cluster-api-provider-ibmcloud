@@ -220,6 +220,7 @@ func (r *IBMPowerVSCluster) SetConditions(conditions capiv1beta1.Conditions) {
 	r.Status.Conditions = conditions
 }
 
+// Set sets the details of the resource.
 func (rf *ResourceReference) Set(resource ResourceReference) {
 	rf.ID = resource.ID
 	if !*rf.ControllerCreated {

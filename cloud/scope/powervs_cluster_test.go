@@ -56,7 +56,7 @@ func TestNewPowerVSClusterScope(t *testing.T) {
 		//		Cluster:           newCluster(clusterName),
 		//		IBMPowerVSCluster: newPowerVSCluster(clusterName),
 		//	},
-		//},
+		// },
 	}
 	for _, tc := range testCases {
 		g := NewWithT(t)
