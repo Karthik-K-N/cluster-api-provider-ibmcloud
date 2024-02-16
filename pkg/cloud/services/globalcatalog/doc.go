@@ -16,3 +16,6 @@ limitations under the License.
 
 // Package globalcatalog implements IBM Cloud catalog code.
 package globalcatalog
+
+// Note: Intention of this package is to fetch the catlogs id but as we hardcoding the values as of now
+// the methods from this package are not used, will be removed later.

@@ -32,6 +32,7 @@ import (
 	"github.com/IBM/ibm-cos-sdk-go/service/s3"
 )
 
+// IAMEndpoint represent the IAM authorisation URL.
 const IAMEndpoint = "https://iam.cloud.ibm.com/identity/token"
 
 // Service holds the IBM Cloud Resource Controller Service specific information.
@@ -44,6 +45,7 @@ type ServiceOptions struct {
 	*cosSession.Options
 }
 
+// GetBucketByName returns a bucket with the given name.
 func (s *Service) GetBucketByName(name string) (*s3.HeadBucketOutput, error) {
 	input := &s3.HeadBucketInput{
 		Bucket: &name,
@@ -51,43 +53,50 @@ func (s *Service) GetBucketByName(name string) (*s3.HeadBucketOutput, error) {
 	return s.client.HeadBucket(input)
 }
 
+// CreateBucket creates a new bucket in the COS instance.
 func (s *Service) CreateBucket(input *s3.CreateBucketInput) (*s3.CreateBucketOutput, error) {
 	return s.client.CreateBucket(input)
 }
 
+// CreateBucketWithContext creates a new bucket with an addition ability to pass context.
 func (s *Service) CreateBucketWithContext(ctx aws.Context, input *s3.CreateBucketInput, opts ...request.Option) (*s3.CreateBucketOutput, error) {
 	return s.client.CreateBucketWithContext(ctx, input, opts...)
 }
 
+// PutObject adds an object to a bucket.
 func (s *Service) PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error) {
 	return s.client.PutObject(input)
 }
 
+// GetObjectRequest generates a "aws/request.Request" representing the client's request for the GetObject operation.
 func (s *Service) GetObjectRequest(input *s3.GetObjectInput) (*request.Request, *s3.GetObjectOutput) {
 	return s.client.GetObjectRequest(input)
 }
 
+// ListObjects returns the list of objects in a bucket.
 func (s *Service) ListObjects(input *s3.ListObjectsInput) (*s3.ListObjectsOutput, error) {
 	return s.client.ListObjects(input)
 }
 
+// DeleteObject deletes a object in a bucket.
 func (s *Service) DeleteObject(input *s3.DeleteObjectInput) (*s3.DeleteObjectOutput, error) {
 	return s.client.DeleteObject(input)
 }
 
+// PutPublicAccessBlock creates or modifies the PublicAccessBlock configuration for a bucket.
 func (s *Service) PutPublicAccessBlock(input *s3.PutPublicAccessBlockInput) (*s3.PutPublicAccessBlockOutput, error) {
 	return s.client.PutPublicAccessBlock(input)
 }
 
 // NewService returns a new service for the IBM Cloud Resource Controller api client.
-// TODO(karthik-k-n): pass location as a part of options
+// TODO(karthik-k-n): pass location as a part of options.
 func NewService(options ServiceOptions, location, apikey, serviceInstance string) (*Service, error) {
 	if options.Options == nil {
 		options.Options = &cosSession.Options{}
 	}
 	serviceEndpoint := fmt.Sprintf("s3.%s.cloud-object-storage.appdomain.cloud", location)
 
-	//TODO(karthik-k-n): handle URL
+	// TODO(karthik-k-n): handle URL
 	options.Config = aws.Config{
 		Endpoint: &serviceEndpoint,
 		Region:   &location,
@@ -113,8 +122,6 @@ func NewService(options ServiceOptions, location, apikey, serviceInstance string
 
 	// TODO(karthik-k-n): Fix me
 	options.Config.Credentials = ibmiam.NewStaticCredentials(aws.NewConfig(), IAMEndpoint, apikey, serviceInstance)
-
-	//options.Config.Credentials = ibmiam.NewEnvCredentials(aws.NewConfig())
 
 	sess, err := cosSession.NewSessionWithOptions(*options.Options)
 	if err != nil {
