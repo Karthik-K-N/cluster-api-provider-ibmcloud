@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/IBM/go-sdk-core/v5/core"
-
 	tgapiv1 "github.com/IBM/networking-go-sdk/transitgatewayapisv1"
 
 	"k8s.io/utils/pointer"
@@ -56,10 +55,12 @@ func NewService() (TransitGateway, error) {
 	}, nil
 }
 
+// GetTransitGateway returns the specified transit gateway. If not found, returns error.
 func (s *Service) GetTransitGateway(options *tgapiv1.GetTransitGatewayOptions) (*tgapiv1.TransitGateway, *core.DetailedResponse, error) {
 	return s.tgClient.GetTransitGateway(options)
 }
 
+// GetTransitGatewayByName returns tranit gateway with given name. If not found, returns nil.
 func (s *Service) GetTransitGatewayByName(name string) (*tgapiv1.TransitGateway, error) {
 	var transitGateway *tgapiv1.TransitGateway
 
@@ -71,7 +72,7 @@ func (s *Service) GetTransitGatewayByName(name string) (*tgapiv1.TransitGateway,
 
 		for _, tg := range tgList.TransitGateways {
 			if *tg.Name == name {
-				transitGateway = &tg
+				*transitGateway = tg
 				return true, "", nil
 			}
 		}
@@ -89,26 +90,32 @@ func (s *Service) GetTransitGatewayByName(name string) (*tgapiv1.TransitGateway,
 	return transitGateway, nil
 }
 
+// ListTransitGatewayConnections lists the transit gateway connections.
 func (s *Service) ListTransitGatewayConnections(options *tgapiv1.ListTransitGatewayConnectionsOptions) (*tgapiv1.TransitGatewayConnectionCollection, *core.DetailedResponse, error) {
 	return s.tgClient.ListTransitGatewayConnections(options)
 }
 
+// CreateTransitGateway creates a transit gateway.
 func (s *Service) CreateTransitGateway(options *tgapiv1.CreateTransitGatewayOptions) (*tgapiv1.TransitGateway, *core.DetailedResponse, error) {
 	return s.tgClient.CreateTransitGateway(options)
 }
 
+// CreateTransitGatewayConnection creates a transit gateway connection.
 func (s *Service) CreateTransitGatewayConnection(options *tgapiv1.CreateTransitGatewayConnectionOptions) (*tgapiv1.TransitGatewayConnectionCust, *core.DetailedResponse, error) {
 	return s.tgClient.CreateTransitGatewayConnection(options)
 }
 
+// GetTransitGatewayConnection returns a transit gateway connection.
 func (s *Service) GetTransitGatewayConnection(options *tgapiv1.GetTransitGatewayConnectionOptions) (*tgapiv1.TransitGatewayConnectionCust, *core.DetailedResponse, error) {
 	return s.tgClient.GetTransitGatewayConnection(options)
 }
 
+// DeleteTransitGateway deletes a transit gateway.
 func (s *Service) DeleteTransitGateway(options *tgapiv1.DeleteTransitGatewayOptions) (*core.DetailedResponse, error) {
 	return s.tgClient.DeleteTransitGateway(options)
 }
 
+// DeleteTransitGatewayConnection deletes a transit gateway connection.
 func (s *Service) DeleteTransitGatewayConnection(options *tgapiv1.DeleteTransitGatewayConnectionOptions) (*core.DetailedResponse, error) {
 	return s.tgClient.DeleteTransitGatewayConnection(options)
 }

@@ -18,28 +18,14 @@ package powervs
 
 import (
 	"context"
-	"time"
 
 	"github.com/IBM-Cloud/power-go-client/clients/instance"
 	"github.com/IBM-Cloud/power-go-client/ibmpisession"
 	"github.com/IBM-Cloud/power-go-client/power/client/p_cloud_images"
 	"github.com/IBM-Cloud/power-go-client/power/models"
+
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/authenticator"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/utils"
-)
-
-const (
-	// PowerVS service and plan name
-	powerVSService     = "power-iaas"
-	powerVSServicePlan = "power-virtual-server-group"
-
-	// Resource desired states
-	cloudInstanceActiveState = "active"
-	cloudInstanceFailedState = "failed"
-
-	// Time duration for monitoring the resource readiness
-	pollingInterval              = time.Second * 5
-	cloudInstanceCreationTimeout = time.Minute * 5
 )
 
 var _ PowerVS = &Service{}
@@ -184,7 +170,7 @@ func (s *Service) DeleteDHCPServer(id string) error {
 	return s.dhcpClient.Delete(id)
 }
 
-// GetNetworkByName fetches the network with name. If not found returns nil
+// GetNetworkByName fetches the network with name. If not found, returns nil.
 func (s *Service) GetNetworkByName(networkName string) (*models.NetworkReference, error) {
 	var network *models.NetworkReference
 	networks, err := s.GetAllNetwork()

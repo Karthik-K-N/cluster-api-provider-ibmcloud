@@ -21,30 +21,23 @@ import (
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
+
 	"k8s.io/utils/pointer"
-	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/utils"
 
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/authenticator"
+	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/utils"
 )
 
 const (
 	// TODO(karthik-k-n)(Doubt): should this be fetched using global catalogs or hardcode like this?
 
-	//powerVSResourceID is Power VS power-iaas service id, can be retrieved using ibmcloud cli
-	// ibmcloud catalog service power-iaas
+	// powerVSResourceID is Power VS power-iaas service id, can be retrieved using ibmcloud cli
+	// ibmcloud catalog service power-iaas.
 	powerVSResourceID = "abd259f0-9990-11e8-acc8-b9f54a8f1661"
 
-	//powerVSResourcePlanID is Power VS power-iaas plan id, can be retrieved using ibmcloud cli
-	// ibmcloud catalog service power-iaas
+	// powerVSResourcePlanID is Power VS power-iaas plan id, can be retrieved using ibmcloud cli
+	// ibmcloud catalog service power-iaas.
 	powerVSResourcePlanID = "f165dd34-3a40-423b-9d95-e90a23f724dd"
-
-	//cosResourceID is IBM COS service id, can be retrieved using ibmcloud cli
-	// ibmcloud catalog service cloud-object-storage
-	cosResourceID = "dff97f5c-bc5e-4455-b470-411c3edbe49c"
-
-	//powerVSResourcePlanID is IBM COS plan id, can be retrieved using ibmcloud cli
-	// ibmcloud catalog service cloud-object-storage
-	cosResourcePlanID = "1e4e33e4-cfa6-4f12-9016-be594a6d5f87"
 )
 
 // Service holds the IBM Cloud Resource Controller Service specific information.
@@ -87,7 +80,7 @@ func (s *Service) DeleteResourceInstance(options *resourcecontrollerv2.DeleteRes
 	return s.client.DeleteResourceInstance(options)
 }
 
-// GetServiceInstance returns service instance with given name or id, If not found returns nil.
+// GetServiceInstance returns service instance with given name or id. If not found, returns nil.
 func (s *Service) GetServiceInstance(id, name string) (*resourcecontrollerv2.ResourceInstance, error) {
 	var serviceInstancesList []resourcecontrollerv2.ResourceInstance
 	f := func(start string) (bool, string, error) {
@@ -137,7 +130,7 @@ func (s *Service) GetServiceInstance(id, name string) (*resourcecontrollerv2.Res
 	}
 }
 
-// GetInstanceByName returns instance with given name, planID and resourceID, If not found returns nil.
+// GetInstanceByName returns instance with given name, planID and resourceID. If not found, returns nil.
 func (s *Service) GetInstanceByName(name, resourceID, planID string) (*resourcecontrollerv2.ResourceInstance, error) {
 	var serviceInstancesList []resourcecontrollerv2.ResourceInstance
 	f := func(start string) (bool, string, error) {
@@ -182,6 +175,7 @@ func (s *Service) GetInstanceByName(name, resourceID, planID string) (*resourcec
 	}
 }
 
+// CreateResourceKey creates a new resource key.
 func (s *Service) CreateResourceKey(options *resourcecontrollerv2.CreateResourceKeyOptions) (*resourcecontrollerv2.ResourceKey, *core.DetailedResponse, error) {
 	return s.client.CreateResourceKey(options)
 }

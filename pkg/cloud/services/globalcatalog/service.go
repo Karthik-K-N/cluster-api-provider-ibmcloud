@@ -18,8 +18,10 @@ package globalcatalog
 
 import (
 	"fmt"
+
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globalcatalogv1"
+
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/authenticator"
 )
 
@@ -74,23 +76,23 @@ func (s *Service) GetServiceInfo(service string, servicePlan string) (string, st
 		return "", "", fmt.Errorf("could not retrieve service id for service %s", service)
 	} else if servicePlan == "" {
 		return serviceID, "", nil
-	} else {
-		kind := "plan"
-		getChildOpt := globalcatalogv1.GetChildObjectsOptions{ID: &serviceID, Kind: &kind}
-		var childObjResult *globalcatalogv1.EntrySearchResult
-		childObjResult, _, err = s.client.GetChildObjects(&getChildOpt)
-		if err != nil {
-			return "", "", err
-		}
-		for _, plan := range childObjResult.Resources {
-			if *plan.Name == servicePlan {
-				servicePlanID = *plan.ID
-				return serviceID, servicePlanID, nil
-			}
+	}
+
+	kind := "plan"
+	getChildOpt := globalcatalogv1.GetChildObjectsOptions{ID: &serviceID, Kind: &kind}
+	var childObjResult *globalcatalogv1.EntrySearchResult
+	childObjResult, _, err = s.client.GetChildObjects(&getChildOpt)
+	if err != nil {
+		return "", "", err
+	}
+
+	for _, plan := range childObjResult.Resources {
+		if *plan.Name == servicePlan {
+			servicePlanID = *plan.ID
+			return serviceID, servicePlanID, nil
 		}
 	}
-	err = fmt.Errorf("could not retrieve plan id for service name: %s & service plan name: %s", service, servicePlan)
-	return "", "", err
+	return "", "", fmt.Errorf("could not retrieve plan id for service name: %s & service plan name: %s", service, servicePlan)
 }
 
 // NewService returns a new service for the IBM Cloud Global catalog api client.

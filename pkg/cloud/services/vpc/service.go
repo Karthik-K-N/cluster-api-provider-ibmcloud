@@ -18,11 +18,12 @@ package vpc
 
 import (
 	"fmt"
+
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/utils"
 
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/authenticator"
+	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/utils"
 )
 
 // Service holds the VPC Service specific information.
@@ -165,12 +166,12 @@ func (s *Service) GetInstanceProfile(options *vpcv1.GetInstanceProfileOptions) (
 	return s.vpcService.GetInstanceProfile(options)
 }
 
-// GetVPC returns VPC details
+// GetVPC returns VPC details.
 func (s *Service) GetVPC(options *vpcv1.GetVPCOptions) (*vpcv1.VPC, *core.DetailedResponse, error) {
 	return s.vpcService.GetVPC(options)
 }
 
-// GetVPCByName returns VPC with given name, If not found returns nil
+// GetVPCByName returns VPC with given name. If not found, returns nil.
 func (s *Service) GetVPCByName(vpcName string) (*vpcv1.VPC, error) {
 	var vpc *vpcv1.VPC
 	f := func(start string) (bool, string, error) {
@@ -209,12 +210,12 @@ func (s *Service) GetVPCByName(vpcName string) (*vpcv1.VPC, error) {
 	return vpc, nil
 }
 
-// GetSubnet return subnet
+// GetSubnet return subnet.
 func (s *Service) GetSubnet(options *vpcv1.GetSubnetOptions) (*vpcv1.Subnet, *core.DetailedResponse, error) {
 	return s.vpcService.GetSubnet(options)
 }
 
-// GetVPCSubnetByName returns subnet with given name, If not found returns nil
+// GetVPCSubnetByName returns subnet with given name. If not found, returns nil.
 func (s *Service) GetVPCSubnetByName(subnetName string) (*vpcv1.Subnet, error) {
 	var subnet *vpcv1.Subnet
 	f := func(start string) (bool, string, error) {
@@ -253,7 +254,7 @@ func (s *Service) GetVPCSubnetByName(subnetName string) (*vpcv1.Subnet, error) {
 	return subnet, nil
 }
 
-// GetLoadBalancerByName returns loadBalancer with given name, If not found returns nil
+// GetLoadBalancerByName returns loadBalancer with given name. If not found, returns nil.
 func (s *Service) GetLoadBalancerByName(loadBalancerName string) (*vpcv1.LoadBalancer, error) {
 	var loadBalancer *vpcv1.LoadBalancer
 	f := func(start string) (bool, string, error) {
@@ -292,7 +293,7 @@ func (s *Service) GetLoadBalancerByName(loadBalancerName string) (*vpcv1.LoadBal
 	return loadBalancer, nil
 }
 
-// GetSubnetAddrPrefix returns subnets address prefix
+// GetSubnetAddrPrefix returns subnets address prefix.
 func (s *Service) GetSubnetAddrPrefix(vpcID, zone string) (string, error) {
 	var addrPrefix *vpcv1.AddressPrefix
 	f := func(start string) (bool, string, error) {
