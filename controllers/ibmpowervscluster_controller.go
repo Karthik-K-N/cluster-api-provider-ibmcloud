@@ -184,6 +184,7 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 		conditions.MarkFalse(powerVSCluster, infrav1beta2.COSInstanceReadyCondition, infrav1beta2.COSInstanceReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
 		return reconcile.Result{}, err
 	}
+	conditions.MarkTrue(powerVSCluster, infrav1beta2.COSInstanceReadyCondition)
 
 	// update cluster object with loadbalancer host
 	loadBalancer := clusterScope.PublicLoadBalancer()

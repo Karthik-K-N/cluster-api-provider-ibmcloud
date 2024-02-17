@@ -517,7 +517,7 @@ func (m *PowerVSMachineScope) DeleteMachineIgnition() error {
 // createCOSClient creates a new cosClient from the supplied parameters.
 func (m *PowerVSMachineScope) createCOSClient() (*cos.Service, error) {
 	cosInstanceName := m.IBMPowerVSCluster.Spec.CosInstance.Name
-	serviceInstance, err := m.ResourceClient.GetInstanceByName(cosInstanceName, cosResourceID, cosResourcePlanID)
+	serviceInstance, err := m.ResourceClient.GetInstanceByName(cosInstanceName, resourcecontroller.CosResourceID, resourcecontroller.CosResourcePlanID)
 	if err != nil {
 		m.Error(err, "failed to get cos service instance", "name", cosInstanceName)
 		return nil, err
