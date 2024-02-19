@@ -132,7 +132,7 @@ func (s *Service) GetServiceInstance(id, name string) (*resourcecontrollerv2.Res
 	case 1:
 		return &serviceInstancesList[0], nil
 	default:
-		errStr := fmt.Errorf("there exist more than one service instance ID with with same name %s, Try setting serviceInstance.ID", name)
+		errStr := fmt.Errorf("there exist more than one service instance ID with same name %s, Try setting serviceInstance.ID", name)
 		return nil, errStr
 	}
 }
@@ -177,7 +177,7 @@ func (s *Service) GetInstanceByName(name, resourceID, planID string) (*resourcec
 	case 1:
 		return &serviceInstancesList[0], nil
 	default:
-		errStr := fmt.Errorf("there exist more than one COS instance ID with with same name %s, Try setting serviceInstance.ID", name)
+		errStr := fmt.Errorf("there exist more than one COS instance ID with same name %s, Try setting serviceInstance.ID", name)
 		return nil, errStr
 	}
 }

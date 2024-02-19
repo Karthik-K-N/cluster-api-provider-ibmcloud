@@ -32,8 +32,8 @@ import (
 	"github.com/IBM/ibm-cos-sdk-go/service/s3"
 )
 
-// IAMEndpoint represent the IAM authorisation URL.
-const IAMEndpoint = "https://iam.cloud.ibm.com/identity/token"
+// iamEndpoint represent the IAM authorisation URL.
+const iamEndpoint = "https://iam.cloud.ibm.com/identity/token"
 
 // Service holds the IBM Cloud Resource Controller Service specific information.
 type Service struct {
@@ -120,8 +120,7 @@ func NewService(options ServiceOptions, location, apikey, serviceInstance string
 		S3ForcePathStyle: aws.Bool(true),
 	}
 
-	// TODO(karthik-k-n): Fix me
-	options.Config.Credentials = ibmiam.NewStaticCredentials(aws.NewConfig(), IAMEndpoint, apikey, serviceInstance)
+	options.Config.Credentials = ibmiam.NewStaticCredentials(aws.NewConfig(), iamEndpoint, apikey, serviceInstance)
 
 	sess, err := cosSession.NewSessionWithOptions(*options.Options)
 	if err != nil {

@@ -170,7 +170,7 @@ func NewPowerVSMachineScope(params PowerVSMachineScopeParams) (scope *PowerVSMac
 	if serviceInstance == nil {
 		return nil, fmt.Errorf("service instance %s is not yet created", serviceInstanceName)
 	}
-	if *serviceInstance.State != "active" {
+	if *serviceInstance.State != string(infrav1beta2.ServiceInstanceStateActive) {
 		return nil, fmt.Errorf("service instance name: %s id: %s is not in active state", serviceInstanceName, serviceInstanceID)
 	}
 	serviceInstanceID = *serviceInstance.GUID
@@ -203,7 +203,7 @@ func NewPowerVSMachineScope(params PowerVSMachineScopeParams) (scope *PowerVSMac
 	scope.IBMPowerVSClient = c
 	scope.DHCPIPCacheStore = params.DHCPIPCacheStore
 
-	if !genUtil.CreateInfra(*params.IBMPowerVSCluster) {
+	if !genUtil.CheckCreateInfraAnnotation(*params.IBMPowerVSCluster) {
 		return scope, nil
 	}
 
@@ -487,6 +487,14 @@ func (m *PowerVSMachineScope) DeleteMachine() error {
 
 // DeleteMachineIgnition deletes the ignition associated with machine.
 func (m *PowerVSMachineScope) DeleteMachineIgnition() error {
+	_, userDataFormat, err := m.GetRawBootstrapDataWithFormat()
+	if err != nil {
+		return err
+	}
+	if !m.UseIgnition(userDataFormat) {
+		m.Info("Machine not using ignition")
+		return nil
+	}
 	cosClient, err := m.createCOSClient()
 	if err != nil {
 		m.Error(err, "failed to create cosClient")
@@ -516,6 +524,9 @@ func (m *PowerVSMachineScope) DeleteMachineIgnition() error {
 
 // createCOSClient creates a new cosClient from the supplied parameters.
 func (m *PowerVSMachineScope) createCOSClient() (*cos.Service, error) {
+	if m.IBMPowerVSCluster.Spec.CosInstance == nil || m.IBMPowerVSCluster.Spec.CosInstance.Name == "" {
+		return nil, fmt.Errorf("cannot create cos client cos instance name is not set")
+	}
 	cosInstanceName := m.IBMPowerVSCluster.Spec.CosInstance.Name
 	serviceInstance, err := m.ResourceClient.GetInstanceByName(cosInstanceName, resourcecontroller.CosResourceID, resourcecontroller.CosResourcePlanID)
 	if err != nil {
@@ -526,7 +537,7 @@ func (m *PowerVSMachineScope) createCOSClient() (*cos.Service, error) {
 		m.Info("cos service instance is nil")
 		return nil, err
 	}
-	if *serviceInstance.State != "active" {
+	if *serviceInstance.State != string(infrav1beta2.ServiceInstanceStateActive) {
 		m.Info("cos service instance is not in active state", "state", *serviceInstance.State)
 		return nil, fmt.Errorf("cos instance not in active state, current state: %s", *serviceInstance.State)
 	}
