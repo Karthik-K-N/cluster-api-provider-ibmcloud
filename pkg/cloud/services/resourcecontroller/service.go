@@ -87,7 +87,7 @@ func (s *Service) DeleteResourceInstance(options *resourcecontrollerv2.DeleteRes
 }
 
 // GetServiceInstance returns service instance with given name or id. If not found, returns nil.
-// TODO: Combine GetSreviceInstance() and GetInstanceByName()
+// TODO: Combine GetSreviceInstance() and GetInstanceByName().
 func (s *Service) GetServiceInstance(id, name string) (*resourcecontrollerv2.ResourceInstance, error) {
 	var serviceInstancesList []resourcecontrollerv2.ResourceInstance
 	f := func(start string) (bool, string, error) {

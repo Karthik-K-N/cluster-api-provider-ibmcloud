@@ -76,7 +76,7 @@ var (
 	TransitGateway = ResourceType("transitGateway")
 	// VPC is Power VS network resource.
 	VPC = ResourceType("vpc")
-	// Subnet VPC subnet resource.
+	// Subnet is VPC subnet resource.
 	Subnet = ResourceType("subnet")
 	// COSInstance is IBM COS instance resource.
 	COSInstance = ResourceType("cosInstance")
@@ -222,7 +222,7 @@ func NewPowerVSClusterScope(params PowerVSClusterScopeParams) (*PowerVSClusterSc
 	svcEndpoint := endpoints.FetchVPCEndpoint(*params.IBMPowerVSCluster.Spec.VPC.Region, params.ServiceEndpoint)
 	vpcClient, err := vpc.NewService(svcEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("error ailed to create IBM VPC client: %w", err)
+		return nil, fmt.Errorf("error failed to create IBM VPC client: %w", err)
 	}
 
 	tgClient, err := transitgateway.NewService()
@@ -521,6 +521,7 @@ func (s *PowerVSClusterScope) SetCOSBucketStatus(cosInstanceID string, controlle
 	}
 }
 
+// GetResourceGroupID returns the resource group id.
 func (s *PowerVSClusterScope) GetResourceGroupID() (string, error) {
 	if s.IBMPowerVSCluster.Spec.ResourceGroup != nil && s.IBMPowerVSCluster.Spec.ResourceGroup.ID != nil {
 		return *s.IBMPowerVSCluster.Spec.ResourceGroup.ID, nil
@@ -708,7 +709,7 @@ func (s *PowerVSClusterScope) checkDHCPServerStatus() error {
 		return err
 	}
 
-	if *dhcpServer.Status != "ACTIVE" {
+	if *dhcpServer.Status != string(infrav1beta2.DHCPServerStateActive) {
 		return fmt.Errorf("error dhcp server state is not active, current state %s", *dhcpServer.Status)
 	}
 	s.Info("DHCP server is found and its in active state")
@@ -1757,7 +1758,7 @@ func (s *PowerVSClusterScope) DeleteCOSInstance() error {
 	return nil
 }
 
-// resourceCreatedByController helps to identify resource created by controller or not
+// resourceCreatedByController helps to identify resource created by controller or not.
 func (s *PowerVSClusterScope) resourceCreatedByController(resourceType ResourceType) bool { //nolint:gocyclo
 	switch resourceType {
 	case LoadBalancer:

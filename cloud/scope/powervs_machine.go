@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/IBM/go-sdk-core/v5/core"
 	"net/url"
 	"path"
 	"regexp"
@@ -130,6 +131,9 @@ func NewPowerVSMachineScope(params PowerVSMachineScopeParams) (scope *PowerVSMac
 
 	if params.Logger == (logr.Logger{}) {
 		params.Logger = klogr.New()
+	}
+	if params.Logger.V(DEBUGLEVEL).Enabled() {
+		core.SetLoggingLevel(core.LevelDebug)
 	}
 	scope.Logger = params.Logger
 

@@ -196,7 +196,7 @@ func (r *IBMPowerVSMachineReconciler) getOrCreate(scope *scope.PowerVSMachineSco
 	return instance, err
 }
 
-func (r *IBMPowerVSMachineReconciler) reconcileNormal(machineScope *scope.PowerVSMachineScope) (ctrl.Result, error) {
+func (r *IBMPowerVSMachineReconciler) reconcileNormal(machineScope *scope.PowerVSMachineScope) (ctrl.Result, error) { //nolint:gocyclo
 	machineScope.Info("Reconciling IBMPowerVSMachine")
 
 	if !machineScope.Cluster.Status.InfrastructureReady {
@@ -289,16 +289,16 @@ func (r *IBMPowerVSMachineReconciler) reconcileNormal(machineScope *scope.PowerV
 	// Register instance with load balancer
 	machineScope.Info("updating loadbalancer for machine", "name", machineScope.IBMPowerVSMachine.Name)
 	internalIP := machineScope.GetMachineInternalIP()
-	if internalIP != "" {
-		poolMember, err := machineScope.CreateVPCLoadBalancerPoolMember()
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed CreateVPCLoadBalancerPoolMember %s: %w", machineScope.IBMPowerVSMachine.Name, err)
-		}
-		if poolMember != nil && *poolMember.ProvisioningStatus != string(infrav1beta2.VPCLoadBalancerStateActive) {
-			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
-		}
-	} else {
+	if internalIP == "" {
 		machineScope.Info("Not able to update the LoadBalancer, Machine internal IP not yet set", "machine name", machineScope.IBMPowerVSMachine.Name)
+		return ctrl.Result{}, nil
+	}
+	poolMember, err := machineScope.CreateVPCLoadBalancerPoolMember()
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed CreateVPCLoadBalancerPoolMember %s: %w", machineScope.IBMPowerVSMachine.Name, err)
+	}
+	if poolMember != nil && *poolMember.ProvisioningStatus != string(infrav1beta2.VPCLoadBalancerStateActive) {
+		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 	return ctrl.Result{}, nil
 }
