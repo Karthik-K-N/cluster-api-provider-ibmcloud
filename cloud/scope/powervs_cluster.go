@@ -80,6 +80,8 @@ var (
 	Subnet = ResourceType("subnet")
 	// COSInstance is IBM COS instance resource.
 	COSInstance = ResourceType("cosInstance")
+	// ResourceGroup is IBM Resource Group.
+	ResourceGroup = ResourceType("resourceGroup")
 )
 
 // PowerVSClusterScopeParams defines the input parameters used to create a new PowerVSClusterScope.
@@ -271,7 +273,7 @@ func (s *PowerVSClusterScope) Zone() *string {
 }
 
 // ResourceGroup returns the cluster resource group.
-func (s *PowerVSClusterScope) ResourceGroup() *string {
+func (s *PowerVSClusterScope) ResourceGroup() *infrav1beta2.IBMPowerVSResourceReference {
 	return s.IBMPowerVSCluster.Spec.ResourceGroup
 }
 
@@ -519,6 +521,21 @@ func (s *PowerVSClusterScope) SetCOSBucketStatus(cosInstanceID string, controlle
 	}
 }
 
+func (s *PowerVSClusterScope) GetResourceGroupID() (string, error) {
+	if s.IBMPowerVSCluster.Spec.ResourceGroup != nil && s.IBMPowerVSCluster.Spec.ResourceGroup.ID != nil {
+		return *s.IBMPowerVSCluster.Spec.ResourceGroup.ID, nil
+	}
+	if s.IBMPowerVSCluster.Status.ResourceGroup != nil && s.IBMPowerVSCluster.Status.ResourceGroup.ID != nil {
+		return *s.IBMPowerVSCluster.Status.ServiceInstance.ID, nil
+	}
+	resourceGroupID, err := s.fetchResourceGroupID()
+	if err != nil {
+		return "", err
+	}
+	s.SetStatus(ResourceGroup, infrav1beta2.ResourceReference{ID: &resourceGroupID, ControllerCreated: pointer.Bool(false)})
+	return resourceGroupID, nil
+}
+
 // ReconcileServiceInstance reconciles service instance.
 func (s *PowerVSClusterScope) ReconcileServiceInstance() error {
 	serviceInstanceID := s.GetServiceInstanceID()
@@ -587,7 +604,7 @@ func (s *PowerVSClusterScope) getServiceInstance() (*resourcecontrollerv2.Resour
 
 // createServiceInstance creates the service instance.
 func (s *PowerVSClusterScope) createServiceInstance() (*resourcecontrollerv2.ResourceInstance, error) {
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
 		s.Error(err, "failed to create service instance, failed to getch resource group id")
 		return nil, fmt.Errorf("error getting id for resource group %s, %w", *s.ResourceGroup(), err)
@@ -731,6 +748,9 @@ func (s *PowerVSClusterScope) ReconcileVPC() error {
 		if err != nil {
 			return err
 		}
+		if vpcDetails == nil {
+			return fmt.Errorf("error failed to get vpc with id %s", *vpcID)
+		}
 		s.Info("Found VPC with provided id")
 		// TODO(karthik-k-n): Set status here as well
 		return nil
@@ -785,7 +805,7 @@ func (s *PowerVSClusterScope) getVPC() (*vpcv1.VPC, error) {
 
 // createVPC creates VPC.
 func (s *PowerVSClusterScope) createVPC() (*string, error) {
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vpc, error getting id for resource group %s, %w", *s.ResourceGroup(), err)
 	}
@@ -857,10 +877,8 @@ func (s *PowerVSClusterScope) ReconcileVPCSubnet() error {
 			s.Error(err, "error creating vpc subnet")
 			return err
 		}
-		if subnetID != nil {
-			s.Info("created vpc subnet", "id", subnetID)
-			s.SetVPCSubnetID(*subnet.Name, infrav1beta2.ResourceReference{ID: subnetID, ControllerCreated: pointer.Bool(true)})
-		}
+		s.Info("created vpc subnet", "id", subnetID)
+		s.SetVPCSubnetID(*subnet.Name, infrav1beta2.ResourceReference{ID: subnetID, ControllerCreated: pointer.Bool(true)})
 		// TODO(karthik-k-n)(Doubt): Do we need to create public gateway?
 	}
 	return nil
@@ -882,7 +900,7 @@ func (s *PowerVSClusterScope) checkVPCSubnet(subnet infrav1beta2.Subnet) (string
 func (s *PowerVSClusterScope) createVPCSubnet(subnet infrav1beta2.Subnet) (*string, error) {
 	// TODO(karthik-k-n): consider moving to clusterscope
 	// fetch resource group id
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
 		return nil, fmt.Errorf("error getting id for resource group %s, %w", *s.ResourceGroup(), err)
 	}
@@ -1042,7 +1060,7 @@ func (s *PowerVSClusterScope) createTransitGateway() (*string, error) {
 	// TODO(karthik-k-n): Verify that the supplied zone supports PER
 	// TODO(karthik-k-n): consider moving to clusterscope
 	// fetch resource group id
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
 		return nil, fmt.Errorf("error getting id for resource group %s, %w", *s.ResourceGroup(), err)
 	}
@@ -1158,7 +1176,7 @@ func (s *PowerVSClusterScope) createLoadBalancer(lb infrav1beta2.VPCLoadBalancer
 	options := &vpcv1.CreateLoadBalancerOptions{}
 	// TODO(karthik-k-n): consider moving resource group id to clusterscope
 	// fetch resource group id
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
 		return nil, fmt.Errorf("error getting id for resource group %s, %w", *s.ResourceGroup(), err)
 	}
@@ -1355,7 +1373,7 @@ func (s *PowerVSClusterScope) checkCOSServiceInstance() (*resourcecontrollerv2.R
 }
 
 func (s *PowerVSClusterScope) createCOSServiceInstance() (*resourcecontrollerv2.ResourceInstance, error) {
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
 		return nil, fmt.Errorf("error getting id for resource group %s, %w", *s.ResourceGroup(), err)
 	}
@@ -1374,8 +1392,12 @@ func (s *PowerVSClusterScope) createCOSServiceInstance() (*resourcecontrollerv2.
 	return serviceInstance, nil
 }
 
-// getResourceGroupID retrieving id of resource group.
-func (s *PowerVSClusterScope) getResourceGroupID() (string, error) {
+// fetchResourceGroupID retrieving id of resource group.
+func (s *PowerVSClusterScope) fetchResourceGroupID() (string, error) {
+	// TODO: Handle this case in wehbook
+	if s.ResourceGroup() == nil || s.ResourceGroup().Name == nil {
+		return "", fmt.Errorf("resource group name is not set")
+	}
 	rmv2, err := resourcemanagerv2.NewResourceManagerV2(&resourcemanagerv2.ResourceManagerV2Options{
 		Authenticator: s.session.Options.Authenticator,
 	})
@@ -1385,7 +1407,7 @@ func (s *PowerVSClusterScope) getResourceGroupID() (string, error) {
 	if rmv2 == nil {
 		return "", fmt.Errorf("unable to get resource controller")
 	}
-	resourceGroup := s.ResourceGroup()
+	resourceGroup := s.ResourceGroup().Name
 	rmv2ListResourceGroupOpt := resourcemanagerv2.ListResourceGroupsOptions{Name: resourceGroup, AccountID: &s.session.Options.UserAccount}
 	resourceGroupListResult, _, err := rmv2.ListResourceGroups(&rmv2ListResourceGroupOpt)
 	if err != nil {
