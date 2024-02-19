@@ -182,10 +182,7 @@ func (r *IBMPowerVSMachineReconciler) reconcileDelete(scope *scope.PowerVSMachin
 		scope.Info("error deleting IBMPowerVSMachine")
 		return ctrl.Result{}, fmt.Errorf("error deleting IBMPowerVSMachine %v: %w", klog.KObj(scope.IBMPowerVSMachine), err)
 	}
-	if err := scope.DeleteMachineIgnition(); err != nil {
-		scope.Info("error deleting IBMPowerVSMachine ignition")
-		return ctrl.Result{}, fmt.Errorf("error deleting IBMPowerVSMachine ignition %v: %w", klog.KObj(scope.IBMPowerVSMachine), err)
-	}
+
 	// Remove the cached VM IP
 	err := scope.DHCPIPCacheStore.Delete(powervs.VMip{Name: scope.IBMPowerVSMachine.Name})
 	if err != nil {
@@ -199,7 +196,7 @@ func (r *IBMPowerVSMachineReconciler) getOrCreate(scope *scope.PowerVSMachineSco
 	return instance, err
 }
 
-func (r *IBMPowerVSMachineReconciler) reconcileNormal(machineScope *scope.PowerVSMachineScope) (ctrl.Result, error) {
+func (r *IBMPowerVSMachineReconciler) reconcileNormal(machineScope *scope.PowerVSMachineScope) (ctrl.Result, error) { //nolint:gocyclo
 	machineScope.Info("Reconciling IBMPowerVSMachine")
 
 	if !machineScope.Cluster.Status.InfrastructureReady {
@@ -280,22 +277,28 @@ func (r *IBMPowerVSMachineReconciler) reconcileNormal(machineScope *scope.PowerV
 		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
 	}
 
-	if !genUtil.CreateInfra(*machineScope.IBMPowerVSCluster) {
+	//TODO: Validate this
+	if err := machineScope.DeleteMachineIgnition(); err != nil {
+		machineScope.Info("error deleting IBMPowerVSMachine ignition")
+		return ctrl.Result{}, fmt.Errorf("error deleting IBMPowerVSMachine ignition %v: %w", klog.KObj(machineScope.IBMPowerVSMachine), err)
+	}
+
+	if !genUtil.CheckCreateInfraAnnotation(*machineScope.IBMPowerVSCluster) {
 		return ctrl.Result{}, nil
 	}
 	// Register instance with load balancer
 	machineScope.Info("updating loadbalancer for machine", "name", machineScope.IBMPowerVSMachine.Name)
 	internalIP := machineScope.GetMachineInternalIP()
-	if internalIP != "" {
-		poolMember, err := machineScope.CreateVPCLoadBalancerPoolMember()
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed CreateVPCLoadBalancerPoolMember %s: %w", machineScope.IBMPowerVSMachine.Name, err)
-		}
-		if poolMember != nil && *poolMember.ProvisioningStatus != string(infrav1beta2.VPCLoadBalancerStateActive) {
-			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
-		}
-	} else {
+	if internalIP == "" {
 		machineScope.Info("Not able to update the LoadBalancer, Machine internal IP not yet set", "machine name", machineScope.IBMPowerVSMachine.Name)
+		return ctrl.Result{}, nil
+	}
+	poolMember, err := machineScope.CreateVPCLoadBalancerPoolMember()
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed CreateVPCLoadBalancerPoolMember %s: %w", machineScope.IBMPowerVSMachine.Name, err)
+	}
+	if poolMember != nil && *poolMember.ProvisioningStatus != string(infrav1beta2.VPCLoadBalancerStateActive) {
+		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 	return ctrl.Result{}, nil
 }

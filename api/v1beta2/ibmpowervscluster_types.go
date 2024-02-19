@@ -62,7 +62,7 @@ type IBMPowerVSClusterSpec struct {
 	// resourceGroup name under which the resources will be created.
 	// when omitted default resource group of the account will be used.
 	// +optional
-	ResourceGroup *string `json:"resourceGroup,omitempty"`
+	ResourceGroup *IBMPowerVSResourceReference `json:"resourceGroup,omitempty"`
 
 	// vpc contains information about IBM Cloud VPC resources.
 	// +optional
@@ -106,6 +106,9 @@ type IBMPowerVSClusterStatus struct {
 	// ready is true when the provider resource is ready.
 	// +kubebuilder:default=false
 	Ready bool `json:"ready"`
+
+	// ResourceGroup is the reference to the Power VS resource group under which the resources will be created.
+	ResourceGroup *ResourceReference `json:"resourceGroupID,omitempty"`
 
 	// serviceInstance is the reference to the Power VS service on which the server instance(VM) will be created.
 	ServiceInstance *ResourceReference `json:"serviceInstance,omitempty"`

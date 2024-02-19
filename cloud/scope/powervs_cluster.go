@@ -76,10 +76,12 @@ var (
 	TransitGateway = ResourceType("transitGateway")
 	// VPC is Power VS network resource.
 	VPC = ResourceType("vpc")
-	// Subnet VPC subnet resource.
+	// Subnet is VPC subnet resource.
 	Subnet = ResourceType("subnet")
 	// COSInstance is IBM COS instance resource.
 	COSInstance = ResourceType("cosInstance")
+	// ResourceGroup is IBM Resource Group.
+	ResourceGroup = ResourceType("resourceGroup")
 )
 
 // PowerVSClusterScopeParams defines the input parameters used to create a new PowerVSClusterScope.
@@ -196,7 +198,7 @@ func NewPowerVSClusterScope(params PowerVSClusterScopeParams) (*PowerVSClusterSc
 		return nil, fmt.Errorf("error failed to get power vs session %w", err)
 	}
 
-	if !genUtil.CreateInfra(*params.IBMPowerVSCluster) {
+	if !genUtil.CheckCreateInfraAnnotation(*params.IBMPowerVSCluster) {
 		return &PowerVSClusterScope{
 			session:           session,
 			Logger:            params.Logger,
@@ -220,7 +222,7 @@ func NewPowerVSClusterScope(params PowerVSClusterScopeParams) (*PowerVSClusterSc
 	svcEndpoint := endpoints.FetchVPCEndpoint(*params.IBMPowerVSCluster.Spec.VPC.Region, params.ServiceEndpoint)
 	vpcClient, err := vpc.NewService(svcEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("error ailed to create IBM VPC client: %w", err)
+		return nil, fmt.Errorf("error failed to create IBM VPC client: %w", err)
 	}
 
 	tgClient, err := transitgateway.NewService()
@@ -271,7 +273,7 @@ func (s *PowerVSClusterScope) Zone() *string {
 }
 
 // ResourceGroup returns the cluster resource group.
-func (s *PowerVSClusterScope) ResourceGroup() *string {
+func (s *PowerVSClusterScope) ResourceGroup() *infrav1beta2.IBMPowerVSResourceReference {
 	return s.IBMPowerVSCluster.Spec.ResourceGroup
 }
 
@@ -519,6 +521,22 @@ func (s *PowerVSClusterScope) SetCOSBucketStatus(cosInstanceID string, controlle
 	}
 }
 
+// GetResourceGroupID returns the resource group id.
+func (s *PowerVSClusterScope) GetResourceGroupID() (string, error) {
+	if s.IBMPowerVSCluster.Spec.ResourceGroup != nil && s.IBMPowerVSCluster.Spec.ResourceGroup.ID != nil {
+		return *s.IBMPowerVSCluster.Spec.ResourceGroup.ID, nil
+	}
+	if s.IBMPowerVSCluster.Status.ResourceGroup != nil && s.IBMPowerVSCluster.Status.ResourceGroup.ID != nil {
+		return *s.IBMPowerVSCluster.Status.ServiceInstance.ID, nil
+	}
+	resourceGroupID, err := s.fetchResourceGroupID()
+	if err != nil {
+		return "", err
+	}
+	s.SetStatus(ResourceGroup, infrav1beta2.ResourceReference{ID: &resourceGroupID, ControllerCreated: pointer.Bool(false)})
+	return resourceGroupID, nil
+}
+
 // ReconcileServiceInstance reconciles service instance.
 func (s *PowerVSClusterScope) ReconcileServiceInstance() error {
 	serviceInstanceID := s.GetServiceInstanceID()
@@ -587,10 +605,10 @@ func (s *PowerVSClusterScope) getServiceInstance() (*resourcecontrollerv2.Resour
 
 // createServiceInstance creates the service instance.
 func (s *PowerVSClusterScope) createServiceInstance() (*resourcecontrollerv2.ResourceInstance, error) {
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
-		s.Error(err, "failed to create service instance, failed to getch resource group id")
-		return nil, fmt.Errorf("error getting id for resource group %s, %w", *s.ResourceGroup(), err)
+		s.Error(err, "failed to create service instance, failed to fetch resource group id")
+		return nil, fmt.Errorf("error getting id for resource group %v, %w", *s.ResourceGroup(), err)
 	}
 
 	// create service instance
@@ -691,7 +709,7 @@ func (s *PowerVSClusterScope) checkDHCPServerStatus() error {
 		return err
 	}
 
-	if *dhcpServer.Status != "ACTIVE" {
+	if *dhcpServer.Status != string(infrav1beta2.DHCPServerStateActive) {
 		return fmt.Errorf("error dhcp server state is not active, current state %s", *dhcpServer.Status)
 	}
 	s.Info("DHCP server is found and its in active state")
@@ -730,6 +748,9 @@ func (s *PowerVSClusterScope) ReconcileVPC() error {
 		})
 		if err != nil {
 			return err
+		}
+		if vpcDetails == nil {
+			return fmt.Errorf("error failed to get vpc with id %s", *vpcID)
 		}
 		s.Info("Found VPC with provided id")
 		// TODO(karthik-k-n): Set status here as well
@@ -785,9 +806,9 @@ func (s *PowerVSClusterScope) getVPC() (*vpcv1.VPC, error) {
 
 // createVPC creates VPC.
 func (s *PowerVSClusterScope) createVPC() (*string, error) {
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vpc, error getting id for resource group %s, %w", *s.ResourceGroup(), err)
+		return nil, fmt.Errorf("failed to create vpc, error getting id for resource group %v, %w", *s.ResourceGroup(), err)
 	}
 	addressPrefixManagement := "auto"
 	vpcOption := &vpcv1.CreateVPCOptions{
@@ -857,10 +878,8 @@ func (s *PowerVSClusterScope) ReconcileVPCSubnet() error {
 			s.Error(err, "error creating vpc subnet")
 			return err
 		}
-		if subnetID != nil {
-			s.Info("created vpc subnet", "id", subnetID)
-			s.SetVPCSubnetID(*subnet.Name, infrav1beta2.ResourceReference{ID: subnetID, ControllerCreated: pointer.Bool(true)})
-		}
+		s.Info("created vpc subnet", "id", subnetID)
+		s.SetVPCSubnetID(*subnet.Name, infrav1beta2.ResourceReference{ID: subnetID, ControllerCreated: pointer.Bool(true)})
 		// TODO(karthik-k-n)(Doubt): Do we need to create public gateway?
 	}
 	return nil
@@ -882,9 +901,9 @@ func (s *PowerVSClusterScope) checkVPCSubnet(subnet infrav1beta2.Subnet) (string
 func (s *PowerVSClusterScope) createVPCSubnet(subnet infrav1beta2.Subnet) (*string, error) {
 	// TODO(karthik-k-n): consider moving to clusterscope
 	// fetch resource group id
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
-		return nil, fmt.Errorf("error getting id for resource group %s, %w", *s.ResourceGroup(), err)
+		return nil, fmt.Errorf("error getting id for resource group %v, %w", *s.ResourceGroup(), err)
 	}
 	var zone string
 	if subnet.Zone != nil {
@@ -1025,14 +1044,33 @@ func (s *PowerVSClusterScope) checkTransitGatewayStatus(transitGatewayID *string
 		return fmt.Errorf("no connections are attched to transit gateway")
 	}
 
-	// TODO: Identify how to verify vpc and powervs both are attached
+	vpcCRN, err := s.fetchVPCCRN()
+	if err != nil {
+		return fmt.Errorf("error failed to fetch VPC CRN: %w", err)
+	}
+
+	pvsServiceInstanceCRN, err := s.fetchPowerVSServiceInstanceCRN()
+	if err != nil {
+		return fmt.Errorf("error failed to fetch powervs service instance CRN: %w", err)
+	}
+
+	var powerVSAttached, vpcAttached bool
 	for _, conn := range tgConnections.Connections {
-		if *conn.NetworkType == "vpc" && *conn.Status != "attached" {
-			return fmt.Errorf("error vpc connection not attached to transit gateway, current status: %s", *conn.Status)
+		if *conn.NetworkType == "vpc" && *conn.NetworkID == *vpcCRN {
+			if *conn.Status != "attached" {
+				return fmt.Errorf("error vpc connection not attached to transit gateway, current status: %s", *conn.Status)
+			}
+			vpcAttached = true
 		}
-		if *conn.NetworkType == "power_virtual_server" && *conn.Status != "attached" {
-			return fmt.Errorf("error powervs connection not attached to transit gateway, current status: %s", *conn.Status)
+		if *conn.NetworkType == "power_virtual_server" && *conn.NetworkID == *pvsServiceInstanceCRN {
+			if *conn.Status != "attached" {
+				return fmt.Errorf("error powervs connection not attached to transit gateway, current status: %s", *conn.Status)
+			}
+			powerVSAttached = true
 		}
+	}
+	if !powerVSAttached || !vpcAttached {
+		return fmt.Errorf("either one of powervs or vpc transit gateway connections are not attached, PowerVS: %t VPC: %t", powerVSAttached, vpcAttached)
 	}
 	return nil
 }
@@ -1042,9 +1080,9 @@ func (s *PowerVSClusterScope) createTransitGateway() (*string, error) {
 	// TODO(karthik-k-n): Verify that the supplied zone supports PER
 	// TODO(karthik-k-n): consider moving to clusterscope
 	// fetch resource group id
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
-		return nil, fmt.Errorf("error getting id for resource group %s, %w", *s.ResourceGroup(), err)
+		return nil, fmt.Errorf("error getting id for resource group %v, %w", *s.ResourceGroup(), err)
 	}
 
 	vpcRegion := s.getVPCRegion()
@@ -1158,9 +1196,9 @@ func (s *PowerVSClusterScope) createLoadBalancer(lb infrav1beta2.VPCLoadBalancer
 	options := &vpcv1.CreateLoadBalancerOptions{}
 	// TODO(karthik-k-n): consider moving resource group id to clusterscope
 	// fetch resource group id
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
-		return nil, fmt.Errorf("error getting id for resource group %s, %w", *s.ResourceGroup(), err)
+		return nil, fmt.Errorf("error getting id for resource group %v, %w", *s.ResourceGroup(), err)
 	}
 
 	options.SetName(lb.Name)
@@ -1355,9 +1393,9 @@ func (s *PowerVSClusterScope) checkCOSServiceInstance() (*resourcecontrollerv2.R
 }
 
 func (s *PowerVSClusterScope) createCOSServiceInstance() (*resourcecontrollerv2.ResourceInstance, error) {
-	resourceGroupID, err := s.getResourceGroupID()
+	resourceGroupID, err := s.GetResourceGroupID()
 	if err != nil {
-		return nil, fmt.Errorf("error getting id for resource group %s, %w", *s.ResourceGroup(), err)
+		return nil, fmt.Errorf("error getting id for resource group %v, %w", *s.ResourceGroup(), err)
 	}
 
 	target := "Global"
@@ -1374,8 +1412,12 @@ func (s *PowerVSClusterScope) createCOSServiceInstance() (*resourcecontrollerv2.
 	return serviceInstance, nil
 }
 
-// getResourceGroupID retrieving id of resource group.
-func (s *PowerVSClusterScope) getResourceGroupID() (string, error) {
+// fetchResourceGroupID retrieving id of resource group.
+func (s *PowerVSClusterScope) fetchResourceGroupID() (string, error) {
+	// TODO: Handle this case in wehbook
+	if s.ResourceGroup() == nil || s.ResourceGroup().Name == nil {
+		return "", fmt.Errorf("resource group name is not set")
+	}
 	rmv2, err := resourcemanagerv2.NewResourceManagerV2(&resourcemanagerv2.ResourceManagerV2Options{
 		Authenticator: s.session.Options.Authenticator,
 	})
@@ -1385,7 +1427,7 @@ func (s *PowerVSClusterScope) getResourceGroupID() (string, error) {
 	if rmv2 == nil {
 		return "", fmt.Errorf("unable to get resource controller")
 	}
-	resourceGroup := s.ResourceGroup()
+	resourceGroup := s.ResourceGroup().Name
 	rmv2ListResourceGroupOpt := resourcemanagerv2.ListResourceGroupsOptions{Name: resourceGroup, AccountID: &s.session.Options.UserAccount}
 	resourceGroupListResult, _, err := rmv2.ListResourceGroups(&rmv2ListResourceGroupOpt)
 	if err != nil {
@@ -1483,7 +1525,7 @@ func (s *PowerVSClusterScope) GetServiceName(resourceType ResourceType) *string 
 
 // DeleteLoadBalancer deletes loadBalancer.
 func (s *PowerVSClusterScope) DeleteLoadBalancer() error {
-	if !s.deleteResource(LoadBalancer) {
+	if !s.resourceCreatedByController(LoadBalancer) {
 		return nil
 	}
 
@@ -1501,10 +1543,9 @@ func (s *PowerVSClusterScope) DeleteLoadBalancer() error {
 			}
 
 			if lb != nil && lb.ProvisioningStatus != nil && *lb.ProvisioningStatus != string(infrav1beta2.VPCLoadBalancerStateDeletePending) {
-				_, err = s.IBMVPCClient.DeleteLoadBalancer(&vpcv1.DeleteLoadBalancerOptions{
+				if _, err = s.IBMVPCClient.DeleteLoadBalancer(&vpcv1.DeleteLoadBalancerOptions{
 					ID: lb.ID,
-				})
-				if err != nil {
+				}); err != nil {
 					s.Error(err, "error deleting the load balancer")
 					return err
 				}
@@ -1517,7 +1558,7 @@ func (s *PowerVSClusterScope) DeleteLoadBalancer() error {
 
 // DeleteVPCSubnet deletes VPC subnet.
 func (s *PowerVSClusterScope) DeleteVPCSubnet() error {
-	if !s.deleteResource(Subnet) {
+	if !s.resourceCreatedByController(Subnet) {
 		return nil
 	}
 
@@ -1537,10 +1578,9 @@ func (s *PowerVSClusterScope) DeleteVPCSubnet() error {
 			return fmt.Errorf("error fetching the subnet: %w", err)
 		}
 
-		_, err = s.IBMVPCClient.DeleteSubnet(&vpcv1.DeleteSubnetOptions{
+		if _, err = s.IBMVPCClient.DeleteSubnet(&vpcv1.DeleteSubnetOptions{
 			ID: net.ID,
-		})
-		if err != nil {
+		}); err != nil {
 			return fmt.Errorf("error deleting VPC subnet: %w", err)
 		}
 		s.Info("VPC subnet successfully deleted")
@@ -1550,7 +1590,7 @@ func (s *PowerVSClusterScope) DeleteVPCSubnet() error {
 
 // DeleteVPC deletes VPC.
 func (s *PowerVSClusterScope) DeleteVPC() error {
-	if !s.deleteResource(VPC) {
+	if !s.resourceCreatedByController(VPC) {
 		return nil
 	}
 
@@ -1566,10 +1606,9 @@ func (s *PowerVSClusterScope) DeleteVPC() error {
 			return fmt.Errorf("error fetching the VPC: %w", err)
 		}
 
-		_, err = s.IBMVPCClient.DeleteVPC(&vpcv1.DeleteVPCOptions{
+		if _, err = s.IBMVPCClient.DeleteVPC(&vpcv1.DeleteVPCOptions{
 			ID: vpc.ID,
-		})
-		if err != nil {
+		}); err != nil {
 			return fmt.Errorf("error deleting VPC: %w", err)
 		}
 		s.Info("VPC successfully deleted")
@@ -1579,7 +1618,7 @@ func (s *PowerVSClusterScope) DeleteVPC() error {
 
 // DeleteTransitGateway deletes transit gateway.
 func (s *PowerVSClusterScope) DeleteTransitGateway() error {
-	if !s.deleteResource(TransitGateway) {
+	if !s.resourceCreatedByController(TransitGateway) {
 		return nil
 	}
 
@@ -1602,25 +1641,21 @@ func (s *PowerVSClusterScope) DeleteTransitGateway() error {
 			return fmt.Errorf("error listing transit gateway connections: %w", err)
 		}
 
-		if tgConnections.Connections != nil && len(tgConnections.Connections) > 0 {
-			for _, conn := range tgConnections.Connections {
-				if conn.Status != nil && *conn.Status != string(infrav1beta2.TransitGatewayStateDeletePending) {
-					_, err := s.TransitGatewayClient.DeleteTransitGatewayConnection(&tgapiv1.DeleteTransitGatewayConnectionOptions{
-						ID:               conn.ID,
-						TransitGatewayID: tg.ID,
-					})
-					if err != nil {
-						return fmt.Errorf("error deleting transit gateway connection: %w", err)
-					}
+		for _, conn := range tgConnections.Connections {
+			if conn.Status != nil && *conn.Status != string(infrav1beta2.TransitGatewayStateDeletePending) {
+				_, err := s.TransitGatewayClient.DeleteTransitGatewayConnection(&tgapiv1.DeleteTransitGatewayConnectionOptions{
+					ID:               conn.ID,
+					TransitGatewayID: tg.ID,
+				})
+				if err != nil {
+					return fmt.Errorf("error deleting transit gateway connection: %w", err)
 				}
 			}
 		}
 
-		_, err = s.TransitGatewayClient.DeleteTransitGateway(&tgapiv1.DeleteTransitGatewayOptions{
+		if _, err = s.TransitGatewayClient.DeleteTransitGateway(&tgapiv1.DeleteTransitGatewayOptions{
 			ID: s.IBMPowerVSCluster.Status.TransitGateway.ID,
-		})
-
-		if err != nil {
+		}); err != nil {
 			return fmt.Errorf("error deleting transit gateway: %w", err)
 		}
 		s.Info("Transit gateway successfully deleted")
@@ -1630,7 +1665,7 @@ func (s *PowerVSClusterScope) DeleteTransitGateway() error {
 
 // DeleteDHCPServer deletes DHCP server.
 func (s *PowerVSClusterScope) DeleteDHCPServer() error {
-	if !s.deleteResource(DHCPServer) {
+	if !s.resourceCreatedByController(DHCPServer) {
 		return nil
 	}
 
@@ -1643,8 +1678,7 @@ func (s *PowerVSClusterScope) DeleteDHCPServer() error {
 			return fmt.Errorf("error fetching DHCP server: %w", err)
 		}
 
-		err = s.IBMPowerVSClient.DeleteDHCPServer(*server.ID)
-		if err != nil {
+		if err = s.IBMPowerVSClient.DeleteDHCPServer(*server.ID); err != nil {
 			return fmt.Errorf("error deleting the DHCP server: %w", err)
 		}
 		s.Info("DHCP server successfully deleted")
@@ -1654,7 +1688,7 @@ func (s *PowerVSClusterScope) DeleteDHCPServer() error {
 
 // DeleteServiceInstance deletes service instance.
 func (s *PowerVSClusterScope) DeleteServiceInstance() error {
-	if !s.deleteResource(ServiceInstance) {
+	if !s.resourceCreatedByController(ServiceInstance) {
 		return nil
 	}
 
@@ -1679,12 +1713,10 @@ func (s *PowerVSClusterScope) DeleteServiceInstance() error {
 			return fmt.Errorf("cannot delete service instance as network is not yet deleted")
 		}
 
-		_, err = s.ResourceClient.DeleteResourceInstance(&resourcecontrollerv2.DeleteResourceInstanceOptions{
+		if _, err = s.ResourceClient.DeleteResourceInstance(&resourcecontrollerv2.DeleteResourceInstanceOptions{
 			ID: serviceInstance.ID,
 			//Recursive: pointer.Bool(true),
-		})
-
-		if err != nil {
+		}); err != nil {
 			s.Error(err, "error deleting Power VS service instance")
 			return err
 		}
@@ -1693,9 +1725,9 @@ func (s *PowerVSClusterScope) DeleteServiceInstance() error {
 	return nil
 }
 
-// DeleteCosInstance deletes COS instance.
-func (s *PowerVSClusterScope) DeleteCosInstance() error {
-	if !s.deleteResource(COSInstance) {
+// DeleteCOSInstance deletes COS instance.
+func (s *PowerVSClusterScope) DeleteCOSInstance() error {
+	if !s.resourceCreatedByController(COSInstance) {
 		return nil
 	}
 
@@ -1714,11 +1746,10 @@ func (s *PowerVSClusterScope) DeleteCosInstance() error {
 			return nil
 		}
 
-		_, err = s.ResourceClient.DeleteResourceInstance(&resourcecontrollerv2.DeleteResourceInstanceOptions{
+		if _, err = s.ResourceClient.DeleteResourceInstance(&resourcecontrollerv2.DeleteResourceInstanceOptions{
 			ID:        cosInstance.ID,
 			Recursive: pointer.Bool(true),
-		})
-		if err != nil {
+		}); err != nil {
 			s.Error(err, "error deleting COS service instance")
 			return err
 		}
@@ -1727,8 +1758,8 @@ func (s *PowerVSClusterScope) DeleteCosInstance() error {
 	return nil
 }
 
-// deleteResource returns true or false to decide on deleting provided resource.
-func (s *PowerVSClusterScope) deleteResource(resourceType ResourceType) bool { //nolint:gocyclo
+// resourceCreatedByController helps to identify resource created by controller or not.
+func (s *PowerVSClusterScope) resourceCreatedByController(resourceType ResourceType) bool { //nolint:gocyclo
 	switch resourceType {
 	case LoadBalancer:
 		lbs := s.IBMPowerVSCluster.Status.LoadBalancers

@@ -118,7 +118,7 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 	}
 
 	// check for annotation set for cluster resource and decide on proceeding with infra creation.
-	if !genUtil.CreateInfra(*clusterScope.IBMPowerVSCluster) {
+	if !genUtil.CheckCreateInfraAnnotation(*clusterScope.IBMPowerVSCluster) {
 		clusterScope.IBMPowerVSCluster.Status.Ready = true
 		return ctrl.Result{}, nil
 	}
@@ -217,7 +217,7 @@ func (r *IBMPowerVSClusterReconciler) reconcileDelete(ctx context.Context, clust
 	}
 
 	// check for annotation set for cluster resource and decide on proceeding with infra deletion.
-	if !genUtil.CreateInfra(*clusterScope.IBMPowerVSCluster) {
+	if !genUtil.CheckCreateInfraAnnotation(*clusterScope.IBMPowerVSCluster) {
 		controllerutil.RemoveFinalizer(cluster, infrav1beta2.IBMPowerVSClusterFinalizer)
 		return ctrl.Result{}, nil
 	}
@@ -257,7 +257,7 @@ func (r *IBMPowerVSClusterReconciler) reconcileDelete(ctx context.Context, clust
 	}
 
 	clusterScope.Info("Deleting COS service instance")
-	if err := clusterScope.DeleteCosInstance(); err != nil {
+	if err := clusterScope.DeleteCOSInstance(); err != nil {
 		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete COS instance"))
 	}
 

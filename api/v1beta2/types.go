@@ -86,6 +86,13 @@ var (
 	VPCLoadBalancerStateDeletePending = VPCLoadBalancerState("delete_pending")
 )
 
+// DHCPServerState describes the state of the DHCP Server.
+type DHCPServerState string
+
+var (
+	DHCPServerStateActive = DHCPServerState("ACTIVE")
+)
+
 // DeletePolicy defines the policy used to identify images to be preserved.
 type DeletePolicy string
 

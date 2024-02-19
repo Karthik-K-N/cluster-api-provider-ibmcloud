@@ -579,6 +579,7 @@ func Convert_v1beta1_IBMPowerVSClusterStatus_To_v1beta2_IBMPowerVSClusterStatus(
 
 func autoConvert_v1beta2_IBMPowerVSClusterStatus_To_v1beta1_IBMPowerVSClusterStatus(in *v1beta2.IBMPowerVSClusterStatus, out *IBMPowerVSClusterStatus, s conversion.Scope) error {
 	out.Ready = in.Ready
+	// WARNING: in.ResourceGroup requires manual conversion: does not exist in peer-type
 	// WARNING: in.ServiceInstance requires manual conversion: does not exist in peer-type
 	// WARNING: in.Network requires manual conversion: does not exist in peer-type
 	// WARNING: in.DHCPServer requires manual conversion: does not exist in peer-type

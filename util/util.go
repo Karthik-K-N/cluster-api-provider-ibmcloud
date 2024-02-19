@@ -41,8 +41,8 @@ func GetClusterByName(ctx context.Context, c client.Client, namespace, name stri
 	return cluster, nil
 }
 
-// CreateInfra checks for annotations set on IBMPowerVSCluster object to determine cluster creation workflow.
-func CreateInfra(cluster infrav1beta2.IBMPowerVSCluster) bool {
+// CheckCreateInfraAnnotation checks for annotations set on IBMPowerVSCluster object to determine cluster creation workflow.
+func CheckCreateInfraAnnotation(cluster infrav1beta2.IBMPowerVSCluster) bool {
 	annotations := cluster.GetAnnotations()
 	if len(annotations) == 0 {
 		return false

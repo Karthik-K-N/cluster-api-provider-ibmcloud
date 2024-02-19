@@ -87,7 +87,7 @@ func (s *Service) DeleteResourceInstance(options *resourcecontrollerv2.DeleteRes
 }
 
 // GetServiceInstance returns service instance with given name or id. If not found, returns nil.
-// TODO: Combine GetSreviceInstance() and GetInstanceByName()
+// TODO: Combine GetSreviceInstance() and GetInstanceByName().
 func (s *Service) GetServiceInstance(id, name string) (*resourcecontrollerv2.ResourceInstance, error) {
 	var serviceInstancesList []resourcecontrollerv2.ResourceInstance
 	f := func(start string) (bool, string, error) {
@@ -132,7 +132,7 @@ func (s *Service) GetServiceInstance(id, name string) (*resourcecontrollerv2.Res
 	case 1:
 		return &serviceInstancesList[0], nil
 	default:
-		errStr := fmt.Errorf("there exist more than one service instance ID with with same name %s, Try setting serviceInstance.ID", name)
+		errStr := fmt.Errorf("there exist more than one service instance ID with same name %s, Try setting serviceInstance.ID", name)
 		return nil, errStr
 	}
 }
@@ -177,7 +177,7 @@ func (s *Service) GetInstanceByName(name, resourceID, planID string) (*resourcec
 	case 1:
 		return &serviceInstancesList[0], nil
 	default:
-		errStr := fmt.Errorf("there exist more than one COS instance ID with with same name %s, Try setting serviceInstance.ID", name)
+		errStr := fmt.Errorf("there exist more than one COS instance ID with same name %s, Try setting serviceInstance.ID", name)
 		return nil, errStr
 	}
 }
