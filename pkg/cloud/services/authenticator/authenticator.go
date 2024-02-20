@@ -57,3 +57,22 @@ func GetProperties() (map[string]string, error) {
 	}
 	return properties, nil
 }
+
+// GetIAMAuthenticator will get the IAM authenticator for ibmcloud.
+func GetIAMAuthenticator() (*core.IamAuthenticator, error) {
+	props, err := GetProperties()
+	if err != nil {
+		return nil, fmt.Errorf("error while fetching service properties: %w", err)
+	}
+
+	apiKey := props["APIKEY"]
+	if len(apiKey) == 0 {
+		fmt.Printf("ibmcloud api key is not provided, set %s environmental variable", "IBMCLOUD_API_KEY")
+	}
+
+	auth := &core.IamAuthenticator{
+		ApiKey: apiKey,
+	}
+
+	return auth, nil
+}
