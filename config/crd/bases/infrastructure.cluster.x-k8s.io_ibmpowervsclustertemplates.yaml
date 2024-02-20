@@ -218,14 +218,6 @@ spec:
                             minLength: 3
                             pattern: ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$
                             type: string
-                          presignedURLDuration:
-                            description: "PresignedURLDuration defines the duration
-                              for which presigned URLs are valid. \n This is used
-                              to generate presigned URLs for S3 Bucket objects, which
-                              are used by control-plane and worker nodes to fetch
-                              bootstrap data. \n When enabled, the IAM instance profiles
-                              specified are not used."
-                            type: string
                         type: object
                       loadBalancers:
                         description: loadBalancers is optional configuration for configuring

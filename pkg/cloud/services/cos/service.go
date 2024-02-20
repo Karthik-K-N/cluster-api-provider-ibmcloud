@@ -33,7 +33,10 @@ import (
 )
 
 // iamEndpoint represent the IAM authorisation URL.
-const iamEndpoint = "https://iam.cloud.ibm.com/identity/token"
+const (
+	iamEndpoint  = "https://iam.cloud.ibm.com/identity/token"
+	cosURLDomain = "cloud-object-storage.appdomain.cloud"
+)
 
 // Service holds the IBM Cloud Resource Controller Service specific information.
 type Service struct {
@@ -94,8 +97,7 @@ func NewService(options ServiceOptions, location, apikey, serviceInstance string
 	if options.Options == nil {
 		options.Options = &cosSession.Options{}
 	}
-	serviceEndpoint := fmt.Sprintf("s3.%s.cloud-object-storage.appdomain.cloud", location)
-
+	serviceEndpoint := fmt.Sprintf("s3.%s.%s", location, cosURLDomain)
 	// TODO(karthik-k-n): handle URL
 	options.Config = aws.Config{
 		Endpoint: &serviceEndpoint,

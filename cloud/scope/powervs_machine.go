@@ -23,12 +23,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/IBM/go-sdk-core/v5/core"
 	"net/url"
 	"path"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/IBM/go-sdk-core/v5/core"
 
 	"github.com/blang/semver/v4"
 	ignTypes "github.com/coreos/ignition/config/v2_3/types"
@@ -67,6 +68,8 @@ import (
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/record"
 	genUtil "sigs.k8s.io/cluster-api-provider-ibmcloud/util"
 )
+
+const cosURLDomain = "cloud-object-storage.appdomain.cloud"
 
 // PowerVSMachineScopeParams defines the input parameters used to create a new PowerVSMachineScope.
 type PowerVSMachineScopeParams struct {
@@ -401,18 +404,11 @@ func (m *PowerVSMachineScope) createIgnitionData(data []byte) (string, error) {
 		return "", fmt.Errorf("putting object to cos bucket %w", err)
 	}
 
-	if exp := m.IBMPowerVSCluster.Spec.CosInstance.PresignedURLDuration; exp != nil {
-		m.Info("assigning presigned url", "exp", exp)
-		req, _ := cosClient.GetObjectRequest(&s3.GetObjectInput{
-			Bucket: aws.String(bucket),
-			Key:    aws.String(key),
-		})
-		return req.Presign(exp.Duration)
-	}
-
+	bucketRegion := m.IBMPowerVSCluster.Spec.CosInstance.BucketRegion
+	objHost := fmt.Sprintf("%s.s3.%s.%s", bucket, bucketRegion, cosURLDomain)
 	objectURL := &url.URL{
-		Scheme: "s3",
-		Host:   bucket,
+		Scheme: "https",
+		Host:   objHost,
 		Path:   key,
 	}
 
@@ -424,6 +420,21 @@ func (m *PowerVSMachineScope) ignitionUserData(userData []byte) ([]byte, error) 
 	if err != nil {
 		return nil, fmt.Errorf("error creating userdata object %w", err)
 	}
+
+	auth, err := authenticator.GetIAMAuthenticator()
+	if err != nil {
+		return nil, err
+	}
+
+	iamtoken, err := auth.GetToken()
+	if err != nil {
+		return nil, err
+	}
+	if iamtoken == "" {
+		return nil, fmt.Errorf("IAM token empty")
+	}
+	token := "Bearer " + iamtoken
+
 	ignVersion := getIgnitionVersion(m)
 	semver, err := semver.ParseTolerant(ignVersion)
 	if err != nil {
@@ -450,9 +461,13 @@ func (m *PowerVSMachineScope) ignitionUserData(userData []byte) ([]byte, error) 
 			Ignition: ignV3Types.Ignition{
 				Version: semver.String(),
 				Config: ignV3Types.IgnitionConfig{
-					Merge: []ignV3Types.Resource{
-						{
-							Source: aws.String(objectURL),
+					Replace: ignV3Types.Resource{
+						Source: aws.String(objectURL),
+						HTTPHeaders: ignV3Types.HTTPHeaders{
+							{
+								Name:  "Authorization",
+								Value: aws.String(token),
+							},
 						},
 					},
 				},
