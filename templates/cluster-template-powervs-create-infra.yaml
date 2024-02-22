@@ -34,7 +34,8 @@ metadata:
   name: ${CLUSTER_NAME}
   namespace: default
 spec:
-  resourceGroup: ${IBM_RESOURCE_GROUP}
+  resourceGroup:
+    name: ${IBM_RESOURCE_GROUP}
   zone: ${IBMPOWERVS_ZONE}
   serviceInstance:
     name: ${CLUSTER_NAME}-serviceInstance
