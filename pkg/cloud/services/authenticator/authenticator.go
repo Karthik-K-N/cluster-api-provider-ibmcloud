@@ -66,7 +66,7 @@ func GetIAMAuthenticator() (*core.IamAuthenticator, error) {
 	}
 
 	apiKey := props["APIKEY"]
-	if len(apiKey) == 0 {
+	if apiKey == "" {
 		fmt.Printf("ibmcloud api key is not provided, set %s environmental variable", "IBMCLOUD_API_KEY")
 	}
 
