@@ -121,7 +121,7 @@ var (
 	ResourceTypeTransitGateway = ResourceType("transitGateway")
 	// ResourceTypeVPC is Power VS network resource.
 	ResourceTypeVPC = ResourceType("vpc")
-	// SResourceTypeubnet is VPC subnet resource.
+	// ResourceTypeSubnet is VPC subnet resource.
 	ResourceTypeSubnet = ResourceType("subnet")
 	// ResourceTypeCOSInstance is IBM COS instance resource.
 	ResourceTypeCOSInstance = ResourceType("cosInstance")

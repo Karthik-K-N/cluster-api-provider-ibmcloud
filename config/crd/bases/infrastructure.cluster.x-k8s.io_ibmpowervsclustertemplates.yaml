@@ -219,6 +219,29 @@ spec:
                             pattern: ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$
                             type: string
                         type: object
+                      dhcpServer:
+                        description: DHCPServer is contains the configuration to be
+                          used while creating a new DHCP server in PowerVS workspace.
+                          when the field is omitted, a default name is constructed
+                          and DHCP server will be created.
+                        properties:
+                          cidr:
+                            description: Optional cidr for DHCP private network
+                            type: string
+                          dnsServer:
+                            default: 1.1.1.1
+                            description: Optional DNS Server for DHCP service
+                            type: string
+                          name:
+                            description: Optional name of DHCP Service. Only alphanumeric
+                              characters and dashes are allowed (will be prefixed
+                              by DHCP identifier)
+                            type: string
+                          snatEnabled:
+                            description: Indicates if SNAT will be enabled for DHCP
+                              service
+                            type: boolean
+                        type: object
                       loadBalancers:
                         description: loadBalancers is optional configuration for configuring
                           loadbalancers to control plane or data plane nodes when

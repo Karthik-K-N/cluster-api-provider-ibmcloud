@@ -351,6 +351,11 @@ func (s *PowerVSClusterScope) GetDHCPServerID() *string {
 	return nil
 }
 
+// GetDHCPServer returns the DHCP server details.
+func (s *PowerVSClusterScope) GetDHCPServer() *infrav1beta2.DHCPServer {
+	return s.IBMPowerVSCluster.Spec.DHCPServer
+}
+
 // VPC returns the cluster VPC information.
 func (s *PowerVSClusterScope) VPC() *infrav1beta2.VPCResourceReference {
 	return s.IBMPowerVSCluster.Spec.VPC
@@ -658,6 +663,7 @@ func (s *PowerVSClusterScope) checkNetwork() (string, error) {
 }
 
 func (s *PowerVSClusterScope) getNetwork() (*string, error) {
+	// fetch the network associated with network id
 	if s.IBMPowerVSCluster.Spec.Network.ID != nil {
 		network, err := s.IBMPowerVSClient.GetNetworkByID(*s.IBMPowerVSCluster.Spec.Network.ID)
 		if err != nil {
@@ -665,12 +671,23 @@ func (s *PowerVSClusterScope) getNetwork() (*string, error) {
 		}
 		return network.NetworkID, nil
 	}
-	network, err := s.IBMPowerVSClient.GetNetworkByName(*s.GetServiceName(infrav1beta2.ResourceTypeNetwork))
+
+	// if the user has provided the already existing dhcp server name then therer might exist network name
+	// with format DHCPSERVER<user_provided_name>_Private , try fetching that
+	var networkName string
+	if s.GetDHCPServer() != nil && s.GetDHCPServer().Name != nil {
+		networkName = fmt.Sprintf("DHCPSERVER%s_Private", *s.GetDHCPServer().Name)
+	} else {
+		networkName = *s.GetServiceName(infrav1beta2.ResourceTypeNetwork)
+	}
+
+	// fetch the network associated with name
+	network, err := s.IBMPowerVSClient.GetNetworkByName(networkName)
 	if err != nil {
 		return nil, err
 	}
 	if network == nil {
-		s.Info("network does not exist", "name", *s.GetServiceName(infrav1beta2.ResourceTypeNetwork))
+		s.Info("network does not exist", "name", networkName)
 		return nil, nil
 	}
 	return network.NetworkID, nil
@@ -694,10 +711,20 @@ func (s *PowerVSClusterScope) checkDHCPServerStatus() error {
 
 // createDHCPServer creates the DHCP server.
 func (s *PowerVSClusterScope) createDHCPServer() (*string, error) {
-	dhcpServer, err := s.IBMPowerVSClient.CreateDHCPServer(&models.DHCPServerCreate{
-		DNSServer: pointer.String("1.1.1.1"),
-		Name:      s.GetServiceName(infrav1beta2.ResourceTypeDHCPServer),
-	})
+	dhcpServerDetails := s.GetDHCPServer()
+	var dhcpServerCreateParams models.DHCPServerCreate
+	dhcpServerDetails.Name = s.GetServiceName(infrav1beta2.ResourceTypeDHCPServer)
+	if dhcpServerDetails.DNSServer != nil {
+		dhcpServerCreateParams.DNSServer = dhcpServerDetails.DNSServer
+	}
+	if dhcpServerDetails.Cidr != nil {
+		dhcpServerCreateParams.Cidr = dhcpServerDetails.Cidr
+	}
+	if dhcpServerDetails.SnatEnabled != nil {
+		dhcpServerCreateParams.SnatEnabled = dhcpServerDetails.SnatEnabled
+	}
+
+	dhcpServer, err := s.IBMPowerVSClient.CreateDHCPServer(&dhcpServerCreateParams)
 	if err != nil {
 		return nil, err
 	}
@@ -1183,11 +1210,11 @@ func (s *PowerVSClusterScope) createLoadBalancer(lb infrav1beta2.VPCLoadBalancer
 		ID: &resourceGroupID,
 	})
 
-	subnetIds := s.GetVPCSubnetIDs()
-	if subnetIds == nil {
+	subnetIDs := s.GetVPCSubnetIDs()
+	if subnetIDs == nil {
 		return nil, fmt.Errorf("error subnet required for load balancer creation")
 	}
-	for _, subnetID := range subnetIds {
+	for _, subnetID := range subnetIDs {
 		subnet := &vpcv1.SubnetIdentity{
 			ID: subnetID,
 		}
@@ -1487,7 +1514,10 @@ func (s *PowerVSClusterScope) GetServiceName(resourceType infrav1beta2.ResourceT
 		}
 		return s.TransitGateway().Name
 	case infrav1beta2.ResourceTypeDHCPServer:
-		return pointer.String(fmt.Sprintf("%s-dhcp", s.InfraCluster().GetName()))
+		if s.GetDHCPServer() == nil || s.GetDHCPServer().Name == nil {
+			return pointer.String(fmt.Sprintf("%s-dhcp", s.InfraCluster().GetName()))
+		}
+		return s.GetDHCPServer().Name
 	case infrav1beta2.ResourceTypeCOSInstance:
 		if s.COSInstance() == nil || s.COSInstance().Name == "" {
 			return pointer.String(fmt.Sprintf("%s-cosinstance", s.InfraCluster().GetName()))
