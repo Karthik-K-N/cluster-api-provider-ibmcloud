@@ -65,7 +65,13 @@ func (s *Service) GetTransitGatewayByName(name string) (*tgapiv1.TransitGateway,
 	var transitGateway *tgapiv1.TransitGateway
 
 	f := func(start string) (bool, string, error) {
-		tgList, _, err := s.tgClient.ListTransitGateways(&tgapiv1.ListTransitGatewaysOptions{})
+		var listKeyOpt tgapiv1.ListTransitGatewaysOptions
+
+		if start != "" {
+			listKeyOpt.Start = &start
+		}
+
+		tgList, _, err := s.tgClient.ListTransitGateways(&listKeyOpt)
 		if err != nil {
 			return false, "", fmt.Errorf("failed to list transit gateway %w", err)
 		}

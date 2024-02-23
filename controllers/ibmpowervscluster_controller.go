@@ -30,6 +30,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -122,6 +123,15 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 		clusterScope.IBMPowerVSCluster.Status.Ready = true
 		return ctrl.Result{}, nil
 	}
+
+	// fetch and set the resource group id.
+	resourceGroupID, err := clusterScope.GetResourceGroupID()
+	if err != nil {
+		clusterScope.Error(err, "failed to fetch resource group id")
+		return ctrl.Result{}, fmt.Errorf("error getting id for resource group %v, %w", clusterScope.ResourceGroup(), err)
+	}
+	clusterScope.SetStatus(infrav1beta2.ResourceTypeResourceGroup, infrav1beta2.ResourceReference{ID: &resourceGroupID, ControllerCreated: pointer.Bool(false)})
+
 	powerVSCluster := clusterScope.IBMPowerVSCluster
 	// reconcile service instance
 	clusterScope.Info("Reconciling service instance")

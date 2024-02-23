@@ -29,8 +29,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/IBM/go-sdk-core/v5/core"
-
 	"github.com/blang/semver/v4"
 	ignTypes "github.com/coreos/ignition/config/v2_3/types"
 	ignV3Types "github.com/coreos/ignition/v2/config/v3_4/types"
@@ -39,6 +37,7 @@ import (
 	"github.com/IBM-Cloud/power-go-client/ibmpisession"
 	"github.com/IBM-Cloud/power-go-client/power/client/p_cloud_p_vm_instances"
 	"github.com/IBM-Cloud/power-go-client/power/models"
+	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/ibm-cos-sdk-go/aws"
 	"github.com/IBM/ibm-cos-sdk-go/service/s3"
 	"github.com/IBM/vpc-go-sdk/vpcv1"

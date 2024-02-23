@@ -555,6 +555,7 @@ func autoConvert_v1beta2_IBMPowerVSClusterSpec_To_v1beta1_IBMPowerVSClusterSpec(
 	if err := Convert_v1beta2_IBMPowerVSResourceReference_To_v1beta1_IBMPowerVSResourceReference(&in.Network, &out.Network, s); err != nil {
 		return err
 	}
+	// WARNING: in.DHCPServer requires manual conversion: does not exist in peer-type
 	out.ControlPlaneEndpoint = in.ControlPlaneEndpoint
 	// WARNING: in.ServiceInstance requires manual conversion: does not exist in peer-type
 	// WARNING: in.Zone requires manual conversion: does not exist in peer-type

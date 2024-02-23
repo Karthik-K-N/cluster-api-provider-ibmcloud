@@ -40,6 +40,11 @@ type IBMPowerVSClusterSpec struct {
 	// when the field is omitted, A DHCP service will be created in the Power VS server workspace and its private network will be used.
 	Network IBMPowerVSResourceReference `json:"network"`
 
+	// DHCPServer is contains the configuration to be used while creating a new DHCP server in PowerVS workspace.
+	// when the field is omitted, a default name is constructed and DHCP server will be created.
+	// +optional
+	DHCPServer *DHCPServer `json:"dhcpServer,omitempty"`
+
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint capiv1beta1.APIEndpoint `json:"controlPlaneEndpoint"`
@@ -90,6 +95,26 @@ type IBMPowerVSClusterSpec struct {
 	// BootstrapFormatIgnition feature flag to be enabled).
 	// +optional
 	CosInstance *CosInstance `json:"cosInstance,omitempty"`
+}
+
+// DHCPServer contains the DHCP server configurations.
+type DHCPServer struct {
+	// Optional cidr for DHCP private network
+	Cidr *string `json:"cidr,omitempty"`
+
+	// Optional DNS Server for DHCP service
+	// +kubebuilder:default="1.1.1.1"
+	DNSServer *string `json:"dnsServer,omitempty"`
+
+	// Optional name of DHCP Service. Only alphanumeric characters and dashes are allowed (will be prefixed by DHCP identifier)
+	Name *string `json:"name,omitempty"`
+
+	// Optional id of the existing DHCPServer
+	ID *string `json:"id,omitempty"`
+
+	// Optional indicates if SNAT will be enabled for DHCP service
+	// +kubebuilder:default=true
+	Snat *bool `json:"snat,omitempty"`
 }
 
 // ResourceReference identifies a resource with id.
