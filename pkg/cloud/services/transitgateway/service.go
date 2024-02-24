@@ -62,7 +62,7 @@ func (s *Service) GetTransitGateway(options *tgapiv1.GetTransitGatewayOptions) (
 
 // GetTransitGatewayByName returns tranit gateway with given name. If not found, returns nil.
 func (s *Service) GetTransitGatewayByName(name string) (*tgapiv1.TransitGateway, error) {
-	var transitGateway *tgapiv1.TransitGateway
+	var transitGateway tgapiv1.TransitGateway
 
 	f := func(start string) (bool, string, error) {
 		var listKeyOpt tgapiv1.ListTransitGatewaysOptions
@@ -77,8 +77,8 @@ func (s *Service) GetTransitGatewayByName(name string) (*tgapiv1.TransitGateway,
 		}
 
 		for _, tg := range tgList.TransitGateways {
-			if *tg.Name == name {
-				*transitGateway = tg
+			if tg.Name != nil && *tg.Name == name {
+				transitGateway = tg
 				return true, "", nil
 			}
 		}
@@ -93,7 +93,7 @@ func (s *Service) GetTransitGatewayByName(name string) (*tgapiv1.TransitGateway,
 	if err := utils.PagingHelper(f); err != nil {
 		return nil, err
 	}
-	return transitGateway, nil
+	return &transitGateway, nil
 }
 
 // ListTransitGatewayConnections lists the transit gateway connections.

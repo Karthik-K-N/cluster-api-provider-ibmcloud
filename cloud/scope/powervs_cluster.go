@@ -337,8 +337,8 @@ func (s *PowerVSClusterScope) SetStatus(resourceType infrav1beta2.ResourceType, 
 }
 
 // Network returns the cluster Network.
-func (s *PowerVSClusterScope) Network() infrav1beta2.IBMPowerVSResourceReference {
-	return s.IBMPowerVSCluster.Spec.Network
+func (s *PowerVSClusterScope) Network() *infrav1beta2.IBMPowerVSResourceReference {
+	return &s.IBMPowerVSCluster.Spec.Network
 }
 
 // SetNetworkStatus set the network status.
@@ -728,7 +728,12 @@ func (s *PowerVSClusterScope) createDHCPServer() (*string, error) {
 	if dhcpServerDetails == nil {
 		dhcpServerDetails = &infrav1beta2.DHCPServer{}
 	}
-	dhcpServerDetails.Name = s.GetServiceName(infrav1beta2.ResourceTypeDHCPServer)
+
+	if dhcpServerDetails.Name != nil {
+		dhcpServerCreateParams.Name = dhcpServerDetails.Name
+	} else {
+		dhcpServerCreateParams.Name = s.GetServiceName(infrav1beta2.ResourceTypeDHCPServer)
+	}
 	if dhcpServerDetails.DNSServer != nil {
 		dhcpServerCreateParams.DNSServer = dhcpServerDetails.DNSServer
 	}
@@ -1028,7 +1033,7 @@ func (s *PowerVSClusterScope) checkTransitGateway() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if transitGateway == nil {
+	if transitGateway == nil || transitGateway.ID == nil {
 		return "", nil
 	}
 	if err = s.checkTransitGatewayStatus(transitGateway.ID); err != nil {
@@ -1516,7 +1521,7 @@ func (s *PowerVSClusterScope) GetServiceName(resourceType infrav1beta2.ResourceT
 		}
 		return s.ServiceInstance().Name
 	case infrav1beta2.ResourceTypeNetwork:
-		if s.Network().Name == nil {
+		if s.Network() == nil || s.Network().Name == nil {
 			return pointer.String(fmt.Sprintf("DHCPSERVER%s_Private", s.InfraCluster().GetName()))
 		}
 		return s.Network().Name
