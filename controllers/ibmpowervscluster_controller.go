@@ -30,8 +30,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -119,18 +117,18 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 	}
 
 	// check for annotation set for cluster resource and decide on proceeding with infra creation.
+	// do not proceed further if "powervs.cluster.x-k8s.io/create-infra=true" annotation is not set.
 	if !genUtil.CheckCreateInfraAnnotation(*clusterScope.IBMPowerVSCluster) {
 		clusterScope.IBMPowerVSCluster.Status.Ready = true
 		return ctrl.Result{}, nil
 	}
 
-	// fetch and set the resource group id.
-	resourceGroupID, err := clusterScope.GetResourceGroupID()
-	if err != nil {
-		clusterScope.Error(err, "failed to fetch resource group id")
-		return ctrl.Result{}, fmt.Errorf("error getting id for resource group %v, %w", clusterScope.ResourceGroup(), err)
+	// reconcile service resource group
+	clusterScope.Info("Reconciling resource group")
+	if err := clusterScope.ReconcileResourceGroup(); err != nil {
+		clusterScope.Error(err, "failed to reconcile resource group")
+		return reconcile.Result{}, err
 	}
-	clusterScope.SetStatus(infrav1beta2.ResourceTypeResourceGroup, infrav1beta2.ResourceReference{ID: &resourceGroupID, ControllerCreated: pointer.Bool(false)})
 
 	powerVSCluster := clusterScope.IBMPowerVSCluster
 	// reconcile service instance
@@ -207,13 +205,14 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 	}
 
 	clusterScope.Info("Getting load balancer host")
-	if clusterScope.GetLoadBalancerHost(loadBalancer.Name) == nil || *clusterScope.GetLoadBalancerHost(loadBalancer.Name) == "" {
+	hostName := clusterScope.GetLoadBalancerHostName(loadBalancer.Name)
+	if hostName == nil || *hostName == "" {
 		clusterScope.Info("LoadBalancer hostname is not yet available, requeuing")
 		return reconcile.Result{RequeueAfter: time.Minute}, nil
 	}
 	conditions.MarkTrue(powerVSCluster, infrav1beta2.LoadBalancerReadyCondition)
 
-	clusterScope.IBMPowerVSCluster.Spec.ControlPlaneEndpoint.Host = *clusterScope.GetLoadBalancerHost(loadBalancer.Name)
+	clusterScope.IBMPowerVSCluster.Spec.ControlPlaneEndpoint.Host = *clusterScope.GetLoadBalancerHostName(loadBalancer.Name)
 	clusterScope.IBMPowerVSCluster.Spec.ControlPlaneEndpoint.Port = clusterScope.APIServerPort()
 	clusterScope.IBMPowerVSCluster.Status.Ready = true
 	return ctrl.Result{}, nil

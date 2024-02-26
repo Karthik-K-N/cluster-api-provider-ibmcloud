@@ -16,8 +16,8 @@ limitations under the License.
 
 package v1beta2
 
-// APIServerPort is API server port number.
-const APIServerPort int32 = 6443
+// DefaultAPIServerPort is defuault API server port number.
+const DefaultAPIServerPort int32 = 6443
 
 // PowerVSInstanceState describes the state of an IBM Power VS instance.
 type PowerVSInstanceState string

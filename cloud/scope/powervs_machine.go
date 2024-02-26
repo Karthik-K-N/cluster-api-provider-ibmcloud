@@ -1008,5 +1008,5 @@ func (m *PowerVSMachineScope) APIServerPort() int32 {
 	if m.Cluster.Spec.ClusterNetwork != nil && m.Cluster.Spec.ClusterNetwork.APIServerPort != nil {
 		return *m.Cluster.Spec.ClusterNetwork.APIServerPort
 	}
-	return infrav1beta2.APIServerPort
+	return infrav1beta2.DefaultAPIServerPort
 }
