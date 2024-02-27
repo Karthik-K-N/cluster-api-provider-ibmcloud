@@ -133,8 +133,8 @@ func (r *IBMPowerVSClusterReconciler) reconcile(clusterScope *scope.PowerVSClust
 
 	powerVSCluster := clusterScope.IBMPowerVSCluster
 	// reconcile service instance
-	clusterScope.Info("Reconciling service instance")
-	if err := clusterScope.ReconcileServiceInstance(); err != nil {
+	clusterScope.Info("Reconciling Power VS service instance")
+	if err := clusterScope.ReconcilePowerVSServiceInstance(); err != nil {
 		clusterScope.Error(err, "failed to reconcile service instance")
 		conditions.MarkFalse(powerVSCluster, infrav1beta2.ServiceInstanceReadyCondition, infrav1beta2.ServiceInstanceReconciliationFailedReason, capiv1beta1.ConditionSeverityError, err.Error())
 		return reconcile.Result{}, err
@@ -236,6 +236,11 @@ func (r *IBMPowerVSClusterReconciler) reconcileDelete(ctx context.Context, clust
 	allErrs := []error{}
 	clusterScope.IBMPowerVSClient.WithClients(powervs.ServiceOptions{CloudInstanceID: clusterScope.GetServiceInstanceID()})
 
+	clusterScope.Info("Deleting Transit Gateway")
+	if err := clusterScope.DeleteTransitGateway(); err != nil {
+		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete transit gateway"))
+	}
+
 	clusterScope.Info("Deleting VPC load balancer")
 	if err := clusterScope.DeleteLoadBalancer(); err != nil {
 		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete VPC load balancer"))
@@ -249,11 +254,6 @@ func (r *IBMPowerVSClusterReconciler) reconcileDelete(ctx context.Context, clust
 	clusterScope.Info("Deleting VPC")
 	if err := clusterScope.DeleteVPC(); err != nil {
 		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete VPC"))
-	}
-
-	clusterScope.Info("Deleting Transit Gateway")
-	if err := clusterScope.DeleteTransitGateway(); err != nil {
-		allErrs = append(allErrs, errors.Wrapf(err, "failed to delete transit gateway"))
 	}
 
 	clusterScope.Info("Deleting DHCP server")

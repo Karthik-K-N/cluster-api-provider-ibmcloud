@@ -277,12 +277,6 @@ func (r *IBMPowerVSMachineReconciler) reconcileNormal(machineScope *scope.PowerV
 		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
 	}
 
-	//TODO: Validate this
-	if err := machineScope.DeleteMachineIgnition(); err != nil {
-		machineScope.Info("error deleting IBMPowerVSMachine ignition")
-		return ctrl.Result{}, fmt.Errorf("error deleting IBMPowerVSMachine ignition %v: %w", klog.KObj(machineScope.IBMPowerVSMachine), err)
-	}
-
 	if !genUtil.CheckCreateInfraAnnotation(*machineScope.IBMPowerVSCluster) {
 		return ctrl.Result{}, nil
 	}

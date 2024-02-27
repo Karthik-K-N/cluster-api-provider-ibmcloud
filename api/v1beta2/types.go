@@ -71,8 +71,19 @@ var (
 type TransitGatewayState string
 
 var (
+	//TransitGatewayStateAvailable is the string representing a transit gateway in available state.
+	TransitGatewayStateAvailable = TransitGatewayState("available")
+
 	// TransitGatewayStateDeletePending is the string representing a transit gateway in deleting state.
 	TransitGatewayStateDeletePending = TransitGatewayState("deleting")
+)
+
+// TransitGatewayConnectionState describes the state of an IBM Transit Gateway connection.
+type TransitGatewayConnectionState string
+
+var (
+	// TransitGatewayConnectionStateAttached is the string representing a transit gateway connection in attached state.
+	TransitGatewayConnectionStateAttached = TransitGatewayConnectionState("attached")
 )
 
 // VPCLoadBalancerState describes the state of the load balancer.
