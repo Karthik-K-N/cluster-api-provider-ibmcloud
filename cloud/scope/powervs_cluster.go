@@ -711,11 +711,7 @@ func (s *PowerVSClusterScope) createDHCPServer() (*string, error) {
 		dhcpServerDetails = &infrav1beta2.DHCPServer{}
 	}
 
-	if dhcpServerDetails.Name != nil {
-		dhcpServerCreateParams.Name = dhcpServerDetails.Name
-	} else {
-		dhcpServerCreateParams.Name = s.GetServiceName(infrav1beta2.ResourceTypeDHCPServer)
-	}
+	dhcpServerCreateParams.Name = s.GetServiceName(infrav1beta2.ResourceTypeDHCPServer)
 	if dhcpServerDetails.DNSServer != nil {
 		dhcpServerCreateParams.DNSServer = dhcpServerDetails.DNSServer
 	}
@@ -845,14 +841,44 @@ func (s *PowerVSClusterScope) createVPC() (*string, error) {
 
 // ReconcileVPCSubnet reconciles VPC subnet.
 func (s *PowerVSClusterScope) ReconcileVPCSubnet() error {
-	//TODO: Should we handle a case where there are no subnet specified
+	var subnets []infrav1beta2.Subnet
+	// check whether user has set the vpc subnets
+	if len(s.IBMPowerVSCluster.Spec.VPCSubnets) == 0 {
+		// if the user did not set any subnet, we try to create subnet in all the zones.
+		powerVSZone := s.Zone()
+		if powerVSZone == nil {
+			return fmt.Errorf("error reconicling vpc subnet, powervs zone is not set")
+		}
+		region := endpoints.ConstructRegionFromZone(*powerVSZone)
+		vpcZones, err := genUtil.VPCZonesForPowerVSRegion(region)
+		if err != nil {
+			return err
+		}
+		if len(vpcZones) == 0 {
+			return fmt.Errorf("error reconicling vpc subnet,error getting vpc zones, no zone found for region %s", region)
+		}
+		for _, zone := range vpcZones {
+			subnet := infrav1beta2.Subnet{
+				Name: pointer.String(fmt.Sprintf("%s-%s", *s.GetServiceName(infrav1beta2.ResourceTypeSubnet), zone)),
+				Zone: pointer.String(zone),
+			}
+			subnets = append(subnets, subnet)
+		}
+	}
 	for index, subnet := range s.IBMPowerVSCluster.Spec.VPCSubnets {
 		if subnet.Name == nil {
-			// TODO: this should be handled in webhook, check
 			subnet.Name = pointer.String(fmt.Sprintf("%s-%d", *s.GetServiceName(infrav1beta2.ResourceTypeSubnet), index))
 		}
-		s.Info("Reconciling vpc subnet", "subnet", *subnet.Name)
-		subnetID := s.GetVPCSubnetID(*subnet.Name)
+		subnets = append(subnets, subnet)
+	}
+	for _, subnet := range subnets {
+		s.Info("Reconciling vpc subnet", "subnet", subnet)
+		var subnetID *string
+		if subnet.ID != nil {
+			subnetID = subnet.ID
+		} else {
+			subnetID = s.GetVPCSubnetID(*subnet.Name)
+		}
 		if subnetID != nil {
 			subnetDetails, _, err := s.IBMVPCClient.GetSubnet(&vpcv1.GetSubnetOptions{
 				ID: subnetID,
@@ -868,7 +894,7 @@ func (s *PowerVSClusterScope) ReconcileVPCSubnet() error {
 		}
 
 		// check VPC subnet exist in cloud
-		vpcSubnetID, err := s.checkVPCSubnet(subnet)
+		vpcSubnetID, err := s.checkVPCSubnet(*subnet.Name)
 		if err != nil {
 			s.Error(err, "error checking vpc subnet")
 			return err
@@ -886,14 +912,13 @@ func (s *PowerVSClusterScope) ReconcileVPCSubnet() error {
 		}
 		s.Info("created vpc subnet", "id", subnetID)
 		s.SetVPCSubnetID(*subnet.Name, infrav1beta2.ResourceReference{ID: subnetID, ControllerCreated: pointer.Bool(true)})
-		// TODO(karthik-k-n)(Doubt): Do we need to create public gateway?
 	}
 	return nil
 }
 
 // checkVPCSubnet checks VPC subnet exist in cloud.
-func (s *PowerVSClusterScope) checkVPCSubnet(subnet infrav1beta2.Subnet) (string, error) {
-	vpcSubnet, err := s.IBMVPCClient.GetVPCSubnetByName(*subnet.Name)
+func (s *PowerVSClusterScope) checkVPCSubnet(subnetName string) (string, error) {
+	vpcSubnet, err := s.IBMVPCClient.GetVPCSubnetByName(subnetName)
 	if err != nil {
 		return "", err
 	}
@@ -1141,11 +1166,28 @@ func (s *PowerVSClusterScope) createTransitGateway() (*string, error) {
 
 // ReconcileLoadBalancer reconcile loadBalancer.
 func (s *PowerVSClusterScope) ReconcileLoadBalancer() error {
+	var loadBalancers []infrav1beta2.VPCLoadBalancerSpec
+	if len(s.IBMPowerVSCluster.Spec.LoadBalancers) == 0 {
+		loadBalancer := infrav1beta2.VPCLoadBalancerSpec{
+			Name:   *s.GetServiceName(infrav1beta2.ResourceTypeLoadBalancer),
+			Public: true,
+		}
+		loadBalancers = append(loadBalancers, loadBalancer)
+	}
 	for index, loadBalancer := range s.IBMPowerVSCluster.Spec.LoadBalancers {
 		if loadBalancer.Name == "" {
-			loadBalancer.Name = fmt.Sprintf("%s-loadbalancer-%d", s.InfraCluster(), index)
+			loadBalancer.Name = fmt.Sprintf("%s-%d", *s.GetServiceName(infrav1beta2.ResourceTypeLoadBalancer), index)
 		}
-		loadBalancerID := s.GetLoadBalancerID(loadBalancer.Name)
+		loadBalancers = append(loadBalancers, loadBalancer)
+	}
+
+	for _, loadBalancer := range loadBalancers {
+		var loadBalancerID *string
+		if loadBalancer.ID != nil {
+			loadBalancerID = loadBalancer.ID
+		} else {
+			loadBalancerID = s.GetLoadBalancerID(loadBalancer.Name)
+		}
 		if loadBalancerID != nil {
 			s.Info("LoadBalancer ID is set, fetching loadbalancer details", "loadbalancerid", *loadBalancerID)
 			loadBalancer, _, err := s.IBMVPCClient.GetLoadBalancer(&vpcv1.GetLoadBalancerOptions{
@@ -1157,10 +1199,9 @@ func (s *PowerVSClusterScope) ReconcileLoadBalancer() error {
 			if infrav1beta2.VPCLoadBalancerState(*loadBalancer.ProvisioningStatus) != infrav1beta2.VPCLoadBalancerStateActive {
 				return fmt.Errorf("loadbalancer is not in active state, current state %s", *loadBalancer.ProvisioningStatus)
 			}
-			state := infrav1beta2.VPCLoadBalancerState(*loadBalancer.ProvisioningStatus)
 			loadBalancerStatus := infrav1beta2.VPCLoadBalancerStatus{
 				ID:       loadBalancer.ID,
-				State:    state,
+				State:    infrav1beta2.VPCLoadBalancerState(*loadBalancer.ProvisioningStatus),
 				Hostname: loadBalancer.Hostname,
 			}
 			s.SetLoadBalancerStatus(*loadBalancer.Name, loadBalancerStatus)
@@ -1277,7 +1318,7 @@ func (s *PowerVSClusterScope) createLoadBalancer(lb infrav1beta2.VPCLoadBalancer
 		ID:                loadBalancer.ID,
 		State:             lbState,
 		Hostname:          loadBalancer.Hostname,
-		ControllerCreated: pointer.Bool(true),
+		ControllerCreated: pointer.Bool(lb.Public),
 	}, nil
 }
 
@@ -1536,6 +1577,8 @@ func (s *PowerVSClusterScope) GetServiceName(resourceType infrav1beta2.ResourceT
 		return &s.COSInstance().Name
 	case infrav1beta2.ResourceTypeSubnet:
 		return pointer.String(fmt.Sprintf("%s-vpcsubnet", s.InfraCluster()))
+	case infrav1beta2.ResourceTypeLoadBalancer:
+		return pointer.String(fmt.Sprintf("%s-loadbalancer", s.InfraCluster()))
 	}
 	return nil
 }

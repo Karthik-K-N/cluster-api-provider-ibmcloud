@@ -63,6 +63,10 @@ type VPCLoadBalancerSpec struct {
 	// +optional
 	Name string `json:"name,omitempty"`
 
+	// id of the loadbalancer
+	// +optional
+	ID *string `json:"id,omitempty"`
+
 	// public indicates that load balancer is public or private
 	// +kubebuilder:default=true
 	// +optional

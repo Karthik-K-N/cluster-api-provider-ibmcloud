@@ -565,6 +565,7 @@ func autoConvert_v1beta2_IBMPowerVSClusterSpec_To_v1beta1_IBMPowerVSClusterSpec(
 	// WARNING: in.TransitGateway requires manual conversion: does not exist in peer-type
 	// WARNING: in.LoadBalancers requires manual conversion: does not exist in peer-type
 	// WARNING: in.CosInstance requires manual conversion: does not exist in peer-type
+	// WARNING: in.Ignition requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -945,7 +946,6 @@ func autoConvert_v1beta2_IBMPowerVSMachineSpec_To_v1beta1_IBMPowerVSMachineSpec(
 		return err
 	}
 	out.ProviderID = (*string)(unsafe.Pointer(in.ProviderID))
-	// WARNING: in.Ignition requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -1691,6 +1691,7 @@ func Convert_v1beta1_VPCLoadBalancerSpec_To_v1beta2_VPCLoadBalancerSpec(in *VPCL
 
 func autoConvert_v1beta2_VPCLoadBalancerSpec_To_v1beta1_VPCLoadBalancerSpec(in *v1beta2.VPCLoadBalancerSpec, out *VPCLoadBalancerSpec, s conversion.Scope) error {
 	out.Name = in.Name
+	// WARNING: in.ID requires manual conversion: does not exist in peer-type
 	// WARNING: in.Public requires manual conversion: does not exist in peer-type
 	// WARNING: in.AdditionalListeners requires manual conversion: does not exist in peer-type
 	return nil

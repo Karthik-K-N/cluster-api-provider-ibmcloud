@@ -95,6 +95,20 @@ type IBMPowerVSClusterSpec struct {
 	// BootstrapFormatIgnition feature flag to be enabled).
 	// +optional
 	CosInstance *CosInstance `json:"cosInstance,omitempty"`
+
+	// Ignition defined options related to the bootstrapping systems where Ignition is used.
+	// +optional
+	Ignition *Ignition `json:"ignition,omitempty"`
+}
+
+// Ignition defines options related to the bootstrapping systems where Ignition is used.
+type Ignition struct {
+	// Version defines which version of Ignition will be used to generate bootstrap data.
+	//
+	// +optional
+	// +kubebuilder:default="2.3"
+	// +kubebuilder:validation:Enum="2.3";"3.0";"3.1";"3.2";"3.3";"3.4"
+	Version string `json:"version,omitempty"`
 }
 
 // DHCPServer contains the DHCP server configurations.

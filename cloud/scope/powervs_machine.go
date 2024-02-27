@@ -297,7 +297,10 @@ func (m *PowerVSMachineScope) CreateMachine() (*models.PVMInstanceReference, err
 	}
 	network := s.Network
 	if network.ID == nil && network.Name == nil && network.RegEx == nil {
-		network.RegEx = pointer.String(fmt.Sprintf("^DHCPSERVER.*%s.*_Private$", m.IBMPowerVSCluster.GetName()))
+		// if the network is nil, Fetch from cluster.
+		if m.IBMPowerVSCluster.Status.Network != nil && m.IBMPowerVSCluster.Status.Network.ID != nil {
+			network.ID = m.IBMPowerVSCluster.Status.Network.ID
+		}
 	}
 
 	networkID, err := getNetworkID(network, m)
@@ -353,13 +356,13 @@ func (m *PowerVSMachineScope) resolveUserData() (string, error) {
 }
 
 func getIgnitionVersion(scope *PowerVSMachineScope) string {
-	if scope.IBMPowerVSMachine.Spec.Ignition == nil {
-		scope.IBMPowerVSMachine.Spec.Ignition = &infrav1beta2.Ignition{}
+	if scope.IBMPowerVSCluster.Spec.Ignition == nil {
+		scope.IBMPowerVSCluster.Spec.Ignition = &infrav1beta2.Ignition{}
 	}
-	if scope.IBMPowerVSMachine.Spec.Ignition.Version == "" {
-		scope.IBMPowerVSMachine.Spec.Ignition.Version = infrav1beta2.DefaultIgnitionVersion
+	if scope.IBMPowerVSCluster.Spec.Ignition.Version == "" {
+		scope.IBMPowerVSCluster.Spec.Ignition.Version = infrav1beta2.DefaultIgnitionVersion
 	}
-	return scope.IBMPowerVSMachine.Spec.Ignition.Version
+	return scope.IBMPowerVSCluster.Spec.Ignition.Version
 }
 
 func (m *PowerVSMachineScope) bootstrapDataKey() string {
@@ -480,7 +483,7 @@ func (m *PowerVSMachineScope) ignitionUserData(userData []byte) ([]byte, error) 
 
 // UseIgnition returns true if user data format is of type 'ignition', else returns false.
 func (m *PowerVSMachineScope) UseIgnition(userDataFormat string) bool {
-	return userDataFormat == "ignition" || (m.IBMPowerVSMachine.Spec.Ignition != nil)
+	return userDataFormat == "ignition" || (m.IBMPowerVSCluster.Spec.Ignition != nil)
 }
 
 // Close closes the current scope persisting the cluster configuration and status.
@@ -626,9 +629,6 @@ func (m *PowerVSMachineScope) GetImages() (*models.Images, error) {
 }
 
 func getNetworkID(network infrav1beta2.IBMPowerVSResourceReference, m *PowerVSMachineScope) (*string, error) {
-	if network.ID == nil && network.Name == nil && network.RegEx == nil {
-		network.RegEx = pointer.String(fmt.Sprintf("^DHCPSERVER.*%s.*_Private$", m.IBMPowerVSCluster.GetName()))
-	}
 	if network.ID != nil {
 		return network.ID, nil
 	} else if network.Name != nil {
