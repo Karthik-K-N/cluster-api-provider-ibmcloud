@@ -584,7 +584,7 @@ func (m *PowerVSMachineScope) createCOSClient() (*cos.Service, error) {
 
 // GetRawBootstrapDataWithFormat returns the bootstrap data if present.
 func (m *PowerVSMachineScope) GetRawBootstrapDataWithFormat() ([]byte, string, error) {
-	if m.Machine.Spec.Bootstrap.DataSecretName == nil {
+	if m.Machine == nil || m.Machine.Spec.Bootstrap.DataSecretName == nil {
 		return nil, "", errors.New("error retrieving bootstrap data: linked Machine's bootstrap.dataSecretName is nil")
 	}
 
@@ -717,7 +717,7 @@ func (m *PowerVSMachineScope) SetHealth(health *models.PVMInstanceHealth) {
 }
 
 // SetAddresses will set the addresses for the machine.
-func (m *PowerVSMachineScope) SetAddresses(instance *models.PVMInstance) {
+func (m *PowerVSMachineScope) SetAddresses(instance *models.PVMInstance) { //nolint:gocyclo
 	var addresses []corev1.NodeAddress
 	// Setting the name of the vm to the InternalDNS and Hostname as the vm uses that as hostname.
 	addresses = append(addresses, corev1.NodeAddress{
@@ -910,7 +910,7 @@ func (m *PowerVSMachineScope) GetMachineInternalIP() string {
 }
 
 // CreateVPCLoadBalancerPoolMember creates a member in load balaner pool.
-func (m *PowerVSMachineScope) CreateVPCLoadBalancerPoolMember() (*vpcv1.LoadBalancerPoolMember, error) {
+func (m *PowerVSMachineScope) CreateVPCLoadBalancerPoolMember() (*vpcv1.LoadBalancerPoolMember, error) { //nolint:gocyclo
 	loadBalancers := make([]infrav1beta2.VPCLoadBalancerSpec, 0)
 	if len(m.IBMPowerVSCluster.Spec.LoadBalancers) == 0 {
 		loadBalancer := infrav1beta2.VPCLoadBalancerSpec{
