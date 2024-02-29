@@ -30,7 +30,6 @@ import (
 	"strings"
 
 	"github.com/blang/semver/v4"
-	ignTypes "github.com/coreos/ignition/config/v2_3/types"
 	ignV3Types "github.com/coreos/ignition/v2/config/v3_4/types"
 	"github.com/go-logr/logr"
 
@@ -63,6 +62,7 @@ import (
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/resourcecontroller"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/vpc"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/endpoints"
+	ignV2Types "sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/ignition"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/options"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/record"
 	genUtil "sigs.k8s.io/cluster-api-provider-ibmcloud/util"
@@ -445,13 +445,17 @@ func (m *PowerVSMachineScope) ignitionUserData(userData []byte) ([]byte, error) 
 
 	switch semver.Major {
 	case 2:
-		ignData := &ignTypes.Config{
-			Ignition: ignTypes.Ignition{
+		ignData := &ignV2Types.Config{
+			Ignition: ignV2Types.Ignition{
 				Version: semver.String(),
-				Config: ignTypes.IgnitionConfig{
-					Append: []ignTypes.ConfigReference{
-						{
-							Source: objectURL,
+				Config: ignV2Types.IgnitionConfig{
+					Replace: &ignV2Types.ConfigReference{
+						Source: objectURL,
+						HTTPHeaders: ignV2Types.HTTPHeaders{
+							{
+								Name:  "Authorization",
+								Value: token,
+							},
 						},
 					},
 				},
