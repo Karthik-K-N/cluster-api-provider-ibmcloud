@@ -231,11 +231,10 @@ spec:
                   systems where Ignition is used.
                 properties:
                   version:
-                    default: "2.3"
+                    default: "2.4"
                     description: Version defines which version of Ignition will be
                       used to generate bootstrap data.
                     enum:
-                    - "2.3"
                     - "2.4"
                     - "3.0"
                     - "3.1"

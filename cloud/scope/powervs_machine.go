@@ -345,6 +345,25 @@ func (m *PowerVSMachineScope) resolveUserData() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	if getIgnitionVersion(m) == "2.4" {
+		var ignData ignV2Types.Config
+		if err := json.Unmarshal(userData, &ignData); err != nil {
+			fmt.Println("Error:", err)
+			return "", err
+		}
+
+		if ignData.Ignition.Version == "2.3.0" {
+			ignData.Ignition.Version = "2.4.0"
+		}
+
+		userData, err = json.Marshal(ignData)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return "", err
+		}
+	}
+
 	if m.UseIgnition(userDataFormat) {
 		data, err := m.ignitionUserData(userData)
 		if err != nil {
