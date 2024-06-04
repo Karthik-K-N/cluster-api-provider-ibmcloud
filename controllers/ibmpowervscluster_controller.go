@@ -54,6 +54,8 @@ type IBMPowerVSClusterReconciler struct {
 	Recorder        record.EventRecorder
 	ServiceEndpoint []endpoints.ServiceEndpoint
 	Scheme          *runtime.Scheme
+
+	ClientFactory scope.ClientFactory
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=ibmpowervsclusters,verbs=get;list;watch;create;update;patch;delete
@@ -91,6 +93,7 @@ func (r *IBMPowerVSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		Cluster:           cluster,
 		IBMPowerVSCluster: ibmCluster,
 		ServiceEndpoint:   r.ServiceEndpoint,
+		ClientFactory:     r.ClientFactory,
 	})
 
 	if err != nil {
