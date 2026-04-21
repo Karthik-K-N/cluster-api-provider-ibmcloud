@@ -38,33 +38,32 @@ type IBMPowerVSImageSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	ClusterName string `json:"clusterName"`
 
-	// serviceInstance is the reference to the Power VS workspace on which the server instance(VM) will be created.
-	// Power VS workspace is a container for all Power VS instances at a specific geographic region.
-	// serviceInstance can be created via IBM Cloud catalog or CLI.
-	// supported serviceInstance identifier in PowerVSResource are Name and ID and that can be obtained from IBM Cloud UI or IBM Cloud cli.
-	// More detail about Power VS service instance.
-	// https://cloud.ibm.com/docs/power-iaas?topic=power-iaas-creating-power-virtual-server
-	// when omitted system will dynamically create the service instance
+	// serviceInstance is the reference to the PowerVS workspace into which the image will be imported.
+	// If omitted, the controller will inherit the Service Instance from the associated IBMPowerVSCluster.
 	// +optional
-	ServiceInstance *IBMPowerVSResourceReference `json:"serviceInstance,omitempty"`
+	ServiceInstance ResourceIdentifier `json:"serviceInstance,omitempty,omitzero"`
 
-	// bucket is the Cloud Object Storage bucket name; bucket-name[/optional/folder]
-	Bucket *string `json:"bucket"`
+	// bucket is the Cloud Object Storage bucket name; bucket-name[/optional/folder].
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Bucket string `json:"bucket"`
 
 	// object is the Cloud Object Storage image filename.
-	Object *string `json:"object"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Object string `json:"object"`
 
 	// region is the Cloud Object Storage region.
-	Region *string `json:"region"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Region string `json:"region"`
 
-	// storageType is the type of storage, storage pool with the most available space will be selected.
-	// +kubebuilder:default=tier1
+	// storageType is the type of storage. The storage pool with the most available space will be selected.
 	// +kubebuilder:validation:Enum=tier0;tier1;tier3
 	// +optional
 	StorageType string `json:"storageType,omitempty"`
 
-	// deletePolicy defines the policy used to identify images to be preserved beyond the lifecycle of associated cluster.
-	// +kubebuilder:default=delete
+	// deletePolicy defines the policy used to identify images to be preserved beyond the lifecycle of the associated cluster.
 	// +kubebuilder:validation:Enum=delete;retain
 	// +optional
 	DeletePolicy string `json:"deletePolicy,omitempty"`
@@ -84,6 +83,7 @@ type IBMPowerVSImageStatus struct {
 	Ready bool `json:"ready"`
 
 	// imageID is the id of the imported image.
+	// +optional
 	ImageID string `json:"imageID,omitempty"`
 
 	// imageState is the status of the imported image.

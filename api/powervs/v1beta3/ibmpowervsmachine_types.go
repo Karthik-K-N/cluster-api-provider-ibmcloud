@@ -45,26 +45,28 @@ func init() {
 }
 
 // IBMPowerVSMachineSpec defines the desired state of IBMPowerVSMachine.
+// +kubebuilder:validation:XValidation:rule="(has(self.image) ? 1 : 0) + (has(self.imageRef) ? 1 : 0) == 1",message="exactly one of image or imageRef must be specified"
 type IBMPowerVSMachineSpec struct {
-	// serviceInstance is the reference to the Power VS workspace on which the server instance(VM) will be created.
-	// Power VS workspace is a container for all Power VS instances at a specific geographic region.
+	// serviceInstance is the reference to the PowerVS workspace on which the server instance (VM) will be created.
+	// If omitted, the controller will inherit the Service Instance from the associated IBMPowerVSCluster.
 	// serviceInstance can be created via IBM Cloud catalog or CLI.
 	// supported serviceInstance identifier in PowerVSResource are Name and ID and that can be obtained from IBM Cloud UI or IBM Cloud cli.
 	// More detail about Power VS service instance.
 	// https://cloud.ibm.com/docs/power-iaas?topic=power-iaas-creating-power-virtual-server
-	// when omitted system will dynamically create the service instance
 	// +optional
-	ServiceInstance *IBMPowerVSResourceReference `json:"serviceInstance,omitempty"`
+	ServiceInstance ResourceIdentifier `json:"serviceInstance,omitempty,omitzero"`
 
-	// sshKey is the name of the SSH key pair provided to the vsi for authenticating users.
+	// sshKey is the name of the SSH key pair provided to the VSI for authenticating users.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SSHKey string `json:"sshKey,omitempty"`
 
-	// image the reference to the image which is used to create the instance.
-	// supported image identifier in IBMPowerVSResourceReference are Name and ID and that can be obtained from IBM Cloud UI or IBM Cloud cli.
+	// image is the reference to the image which is used to create the instance.
+	// Supported image identifiers are Name and ID.
 	// +optional
-	Image *IBMPowerVSResourceReference `json:"image,omitempty"`
+	Image ResourceIdentifier `json:"image,omitempty,omitzero"`
 
-	// imageRef is a reference to a IBMPowerVSImage resource, which will be imported from IBM COS Bucket to PowerVS workspace.
+	// imageRef is a reference to an IBMPowerVSImage resource, which will be imported from an IBM COS Bucket.
 	// This is an alternative to the image field.
 	// +optional
 	ImageRef ImageReference `json:"imageRef,omitempty,omitzero"`
@@ -74,8 +76,6 @@ type IBMPowerVSMachineSpec struct {
 	// Few of the supported SystemTypes are s922,e980,s1022,e1050,e1080.
 	// When omitted, this means that the user has no opinion and the platform is left to choose a
 	// reasonable default, which is subject to change over time. The current default is s922 which is generally available.
-	// + This is not an enum because we expect other values to be added later which should be supported implicitly.
-	// +kubebuilder:validation:Enum:="s922";"e980";"s1022";"e1050";"e1080";""
 	// +optional
 	SystemType string `json:"systemType,omitempty"`
 
@@ -87,7 +87,7 @@ type IBMPowerVSMachineSpec struct {
 	// if the processorType is selected as Dedicated, then processors value cannot be fractional.
 	// When omitted, this means that the user has no opinion and the platform is left to choose a
 	// reasonable default, which is subject to change over time. The current default is Shared.
-	// +kubebuilder:validation:Enum:="Dedicated";"Shared";"Capped";""
+	// +kubebuilder:validation:Enum="Dedicated";"Shared";"Capped";""
 	// +optional
 	ProcessorType PowerVSProcessorType `json:"processorType,omitempty"`
 
@@ -110,11 +110,14 @@ type IBMPowerVSMachineSpec struct {
 	// When omitted, this means the user has no opinion and the platform is left to choose a reasonable
 	// default, which is subject to change over time. The current default is 2.
 	// +optional
+	// +kubebuilder:validation:Minimum=2
 	MemoryGiB int32 `json:"memoryGiB,omitempty"`
 
 	// network is the reference to the Network to use for this instance.
-	// supported network identifier in IBMPowerVSResourceReference are Name, ID and RegEx and that can be obtained from IBM Cloud UI or IBM Cloud cli.
-	Network IBMPowerVSResourceReference `json:"network"`
+	// Supported network identifiers are Name and ID.
+	// If omitted, the controller will inherit the Network from the associated IBMPowerVSCluster.
+	// +optional
+	Network ResourceIdentifier `json:"network,omitempty,omitzero"`
 
 	// providerID is the unique identifier as specified by the cloud provider.
 	// +optional
@@ -159,55 +162,9 @@ type IBMPowerVSMachineStatus struct {
 	// +optional
 	Fault string `json:"fault,omitempty"`
 
-	// failureReason will be set in the event that there is a terminal problem
-	// reconciling the Machine and will contain a succinct value suitable
-	// for machine interpretation.
-	//
-	// This field should not be set for transitive errors that a controller
-	// faces that are expected to be fixed automatically over
-	// time (like service outages), but instead indicate that something is
-	// fundamentally wrong with the Machine's spec or the configuration of
-	// the controller, and that manual intervention is required. Examples
-	// of terminal errors would be invalid combinations of settings in the
-	// spec, values that are unsupported by the controller, or the
-	// responsible controller itself being critically misconfigured.
-	//
-	// Any transient errors that occur during the reconciliation of Machines
-	// can be added as events to the Machine object and/or logged in the
-	// controller's output.
-	//
-	// Deprecated: This field is deprecated and is going to be removed in the next apiVersion. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
-	//
+	// zone specifies the PowerVS Service instance zone.
 	// +optional
-	FailureReason *string `json:"failureReason,omitempty"`
-
-	// failureMessage will be set in the event that there is a terminal problem
-	// reconciling the Machine and will contain a more verbose string suitable
-	// for logging and human consumption.
-	//
-	// This field should not be set for transitive errors that a controller
-	// faces that are expected to be fixed automatically over
-	// time (like service outages), but instead indicate that something is
-	// fundamentally wrong with the Machine's spec or the configuration of
-	// the controller, and that manual intervention is required. Examples
-	// of terminal errors would be invalid combinations of settings in the
-	// spec, values that are unsupported by the controller, or the
-	// responsible controller itself being critically misconfigured.
-	//
-	// Any transient errors that occur during the reconciliation of Machines
-	// can be added as events to the Machine object and/or logged in the
-	// controller's output.
-	//
-	// Deprecated: This field is deprecated and is going to be removed in the next apiVersion. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
-	//
-	// +optional
-	FailureMessage *string `json:"failureMessage,omitempty"`
-
-	// region specifies the Power VS Service instance region.
-	Region *string `json:"region,omitempty"`
-
-	// zone specifies the Power VS Service instance zone.
-	Zone *string `json:"zone,omitempty"`
+	Zone string `json:"zone,omitempty"`
 
 	// deprecated groups all the status fields that are deprecated and will be removed when all the nested field are removed.
 	// +optional
