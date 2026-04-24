@@ -81,6 +81,7 @@ func newPowerVSMachine(clusterName, machineName string, imageRef *string, networ
 		Spec: infrav1.IBMPowerVSMachineSpec{
 			MemoryGiB:  8,
 			Processors: intstr.FromInt(1),
+			SystemType: "s922",
 			Image:      image,
 			Network:    network,
 		},
@@ -1372,6 +1373,13 @@ func TestCreateMachinePVS(t *testing.T) {
 			setup(t)
 			t.Cleanup(teardown)
 			scope := setupPowerVSMachineScope(clusterName, machineName, ptr.To(pvsImage), ptr.To(pvsNetwork), true, mockpowervs)
+			mockpowervs.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(&models.Datacenter{
+				CapabilitiesDetails: &models.CapabilitiesDetails{
+					SupportedSystems: &models.SupportedSystems{
+						General: []string{"s922", "e980", "s1022"},
+					},
+				},
+			}, nil).AnyTimes()
 			mockpowervs.EXPECT().GetAllInstance().Return(pvmInstances, nil)
 			mockpowervs.EXPECT().CreateInstance(gomock.AssignableToTypeOf(pvmInstanceCreate)).Return(pvmInstanceList, nil)
 			_, err := scope.CreateMachine(ctx)
@@ -1507,6 +1515,13 @@ func TestCreateMachinePVS(t *testing.T) {
 			setup(t)
 			t.Cleanup(teardown)
 			scope := setupPowerVSMachineScope(clusterName, machineName, nil, ptr.To(pvsNetwork), true, mockpowervs)
+			mockpowervs.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(&models.Datacenter{
+				CapabilitiesDetails: &models.CapabilitiesDetails{
+					SupportedSystems: &models.SupportedSystems{
+						General: []string{"s922", "e980", "s1022"},
+					},
+				},
+			}, nil).AnyTimes()
 			mockpowervs.EXPECT().GetAllInstance().Return(pvmInstances, nil)
 			_, err := scope.CreateMachine(ctx)
 			g.Expect(err).To(Not(BeNil()))

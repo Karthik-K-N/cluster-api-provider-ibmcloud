@@ -639,13 +639,7 @@ spec:
                   Few of the supported SystemTypes are s922,e980,s1022,e1050,e1080.
                   When omitted, this means that the user has no opinion and the platform is left to choose a
                   reasonable default, which is subject to change over time. The current default is s922 which is generally available.
-                enum:
-                - s922
-                - e980
-                - s1022
-                - e1050
-                - e1080
-                - ""
+                pattern: ^[a-z][0-9]{3,4}$
                 type: string
             required:
             - network

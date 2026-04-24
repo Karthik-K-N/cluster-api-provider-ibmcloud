@@ -396,7 +396,9 @@ func TestIBMPowerVSClusterReconciler_reconcile(t *testing.T) {
 					},
 				}
 				mockPowerVS := powervsmock.NewMockPowerVS(gomock.NewController(t))
-				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(map[string]bool{"power-edge-router": false}, nil)
+				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(&models.Datacenter{
+					Capabilities: map[string]bool{"power-edge-router": false},
+				}, nil)
 				clusterScope.IBMPowerVSClient = mockPowerVS
 				return clusterScope
 			},
@@ -417,7 +419,9 @@ func TestIBMPowerVSClusterReconciler_reconcile(t *testing.T) {
 					},
 				}
 				mockPowerVS := powervsmock.NewMockPowerVS(gomock.NewController(t))
-				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(map[string]bool{"power-edge-router": true}, nil)
+				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(&models.Datacenter{
+					Capabilities: map[string]bool{"power-edge-router": true},
+				}, nil)
 				clusterScope.IBMPowerVSClient = mockPowerVS
 				return clusterScope
 			},
@@ -446,7 +450,9 @@ func TestIBMPowerVSClusterReconciler_reconcile(t *testing.T) {
 					},
 				}
 				mockPowerVS := powervsmock.NewMockPowerVS(gomock.NewController(t))
-				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(map[string]bool{"power-edge-router": true}, nil)
+				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(&models.Datacenter{
+					Capabilities: map[string]bool{"power-edge-router": true},
+				}, nil)
 				clusterScope.IBMPowerVSClient = mockPowerVS
 
 				mockResourceClient := resourceclientmock.NewMockResourceController(gomock.NewController(t))
@@ -491,7 +497,9 @@ func TestIBMPowerVSClusterReconciler_reconcile(t *testing.T) {
 					},
 				}
 				mockPowerVS := powervsmock.NewMockPowerVS(gomock.NewController(t))
-				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(map[string]bool{"power-edge-router": true}, nil)
+				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(&models.Datacenter{
+					Capabilities: map[string]bool{"power-edge-router": true},
+				}, nil)
 				clusterScope.IBMPowerVSClient = mockPowerVS
 
 				mockResourceClient := resourceclientmock.NewMockResourceController(gomock.NewController(t))
@@ -533,7 +541,9 @@ func TestIBMPowerVSClusterReconciler_reconcile(t *testing.T) {
 					},
 				}
 				mockPowerVS := powervsmock.NewMockPowerVS(gomock.NewController(t))
-				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(map[string]bool{"power-edge-router": true}, nil)
+				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(&models.Datacenter{
+					Capabilities: map[string]bool{"power-edge-router": true},
+				}, nil)
 				clusterScope.IBMPowerVSClient = mockPowerVS
 
 				mockResourceClient := resourceclientmock.NewMockResourceController(gomock.NewController(t))
@@ -683,7 +693,9 @@ func TestIBMPowerVSClusterReconciler_reconcile(t *testing.T) {
 					IBMPowerVSCluster: getPowerVSClusterWithSpecAndStatus(),
 				}
 				mockPowerVS := powervsmock.NewMockPowerVS(gomock.NewController(t))
-				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(map[string]bool{"power-edge-router": true}, nil)
+				mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(&models.Datacenter{
+					Capabilities: map[string]bool{"power-edge-router": true},
+				}, nil)
 				mockPowerVS.EXPECT().GetNetworkByID(gomock.Any()).Return(nil, errors.New("error get networkByID"))
 				mockPowerVS.EXPECT().WithClients(gomock.Any())
 				clusterScope.IBMPowerVSClient = mockPowerVS
@@ -1870,7 +1882,9 @@ func getPowerVSClusterWithSpecAndStatus() *infrav1.IBMPowerVSCluster {
 func getMockPowerVS(t *testing.T) *powervsmock.MockPowerVS {
 	t.Helper()
 	mockPowerVS := powervsmock.NewMockPowerVS(gomock.NewController(t))
-	mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(map[string]bool{"power-edge-router": true}, nil)
+	mockPowerVS.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(&models.Datacenter{
+		Capabilities: map[string]bool{"power-edge-router": true},
+	}, nil)
 	network := &models.Network{NetworkID: ptr.To("netID")}
 	mockPowerVS.EXPECT().GetNetworkByID(gomock.Any()).Return(network, nil)
 	mockPowerVS.EXPECT().WithClients(gomock.Any())

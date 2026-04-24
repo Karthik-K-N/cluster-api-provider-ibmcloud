@@ -664,8 +664,11 @@ func (s *ClusterScope) IsPowerVSZoneSupportsPER() error {
 	if err != nil {
 		return fmt.Errorf("failed to get datacenter capabilities: %w", err)
 	}
+	if datacenterCapabilities == nil || datacenterCapabilities.Capabilities == nil {
+		return fmt.Errorf("failed to get datacenter capabilities for zone: %s", *zone)
+	}
 	// check for the PER support in datacenter capabilities.
-	perAvailable, ok := datacenterCapabilities[powerEdgeRouter]
+	perAvailable, ok := datacenterCapabilities.Capabilities[powerEdgeRouter]
 	if !ok {
 		return fmt.Errorf("%s capability unknown for zone: %s", powerEdgeRouter, *zone)
 	}

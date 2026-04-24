@@ -50,6 +50,9 @@ func newPowerVSCluster(name string) *infrav1.IBMPowerVSCluster {
 			Name:      name,
 			Namespace: "default",
 		},
+		Spec: infrav1.IBMPowerVSClusterSpec{
+			Zone: core.StringPtr("dal10"),
+		},
 	}
 }
 

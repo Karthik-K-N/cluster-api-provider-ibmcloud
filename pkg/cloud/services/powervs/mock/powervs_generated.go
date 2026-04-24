@@ -248,10 +248,10 @@ func (mr *MockPowerVSMockRecorder) GetDHCPServer(id any) *gomock.Call {
 }
 
 // GetDatacenterCapabilities mocks base method.
-func (m *MockPowerVS) GetDatacenterCapabilities(zone string) (map[string]bool, error) {
+func (m *MockPowerVS) GetDatacenterCapabilities(zone string) (*models.Datacenter, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDatacenterCapabilities", zone)
-	ret0, _ := ret[0].(map[string]bool)
+	ret0, _ := ret[0].(*models.Datacenter)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -468,6 +468,13 @@ func TestIBMPowerVSMachineReconciler_ReconcileOperations(t *testing.T) {
 				},
 				IBMPowerVSClient: mockpowervs,
 			}
+			mockpowervs.EXPECT().GetDatacenterCapabilities(gomock.Any()).Return(&models.Datacenter{
+				CapabilitiesDetails: &models.CapabilitiesDetails{
+					SupportedSystems: &models.SupportedSystems{
+						General: []string{"s922", "e980", "s1022"},
+					},
+				},
+			}, nil).AnyTimes()
 			mockpowervs.EXPECT().GetAllInstance().Return(instances, nil)
 
 			result, err := reconciler.reconcileNormal(ctx, machineScope)
@@ -945,6 +952,7 @@ func newIBMPowerVSMachine() *infrav1.IBMPowerVSMachine {
 		Spec: infrav1.IBMPowerVSMachineSpec{
 			MemoryGiB:  8,
 			Processors: intstr.FromString("0.5"),
+			SystemType: "s922",
 			Image: &infrav1.IBMPowerVSResourceReference{
 				ID: ptr.To("capi-image-id"),
 			},
