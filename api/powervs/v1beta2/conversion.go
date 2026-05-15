@@ -47,6 +47,76 @@ func Convert_v1beta2_IBMPowerVSClusterStatus_To_v1beta3_IBMPowerVSClusterStatus(
 		out.Conditions = in.V1Beta2.Conditions
 	}
 
+	// Convert initialization status
+	out.Initialization.Provisioned = ptr.To(in.Ready)
+
+	// Convert ServiceInstance to Workspace in Status
+	if in.ServiceInstance != nil && in.ServiceInstance.ID != nil && *in.ServiceInstance.ID != "" {
+		out.Workspace.ID = *in.ServiceInstance.ID
+	}
+
+	// Convert ResourceGroup
+	if in.ResourceGroup != nil && in.ResourceGroup.ID != nil && *in.ResourceGroup.ID != "" {
+		out.ResourceGroup.ID = *in.ResourceGroup.ID
+	}
+
+	// Convert Network
+	if in.Network != nil && in.Network.ID != nil && *in.Network.ID != "" {
+		out.Network.ID = *in.Network.ID
+	}
+
+	// Convert DHCPServer
+	if in.DHCPServer != nil && in.DHCPServer.ID != nil && *in.DHCPServer.ID != "" {
+		out.DHCPServer.ID = *in.DHCPServer.ID
+	}
+
+	// Convert VPC
+	if in.VPC != nil && in.VPC.ID != nil && *in.VPC.ID != "" {
+		out.VPC.ID = *in.VPC.ID
+	}
+
+	// Convert VPCSubnet map to VPCSubnets slice
+	if len(in.VPCSubnet) > 0 {
+		out.VPCSubnets = make([]infrav1.ResourceReference, 0, len(in.VPCSubnet))
+		for _, subnet := range in.VPCSubnet {
+			if subnet.ID != nil && *subnet.ID != "" {
+				out.VPCSubnets = append(out.VPCSubnets, infrav1.ResourceReference{
+					ID: *subnet.ID,
+				})
+			}
+		}
+	}
+
+	// Convert LoadBalancers map to slice
+	if len(in.LoadBalancers) > 0 {
+		out.LoadBalancers = make([]infrav1.VPCLoadBalancerStatus, 0, len(in.LoadBalancers))
+		for _, lb := range in.LoadBalancers {
+			if lb.ID != nil && *lb.ID != "" {
+				out.LoadBalancers = append(out.LoadBalancers, infrav1.VPCLoadBalancerStatus{
+					ID:       *lb.ID,
+					State:    infrav1.VPCLoadBalancerState(lb.State),
+					Hostname: ptr.Deref(lb.Hostname, ""),
+				})
+			}
+		}
+	}
+
+	// Convert TransitGateway
+	if in.TransitGateway != nil && in.TransitGateway.ID != nil && *in.TransitGateway.ID != "" {
+		out.TransitGateway.ID = *in.TransitGateway.ID
+		if in.TransitGateway.VPCConnection != nil && in.TransitGateway.VPCConnection.ID != nil && *in.TransitGateway.VPCConnection.ID != "" {
+			out.TransitGateway.VPCConnection.ID = *in.TransitGateway.VPCConnection.ID
+		}
+		if in.TransitGateway.PowerVSConnection != nil && in.TransitGateway.PowerVSConnection.ID != nil && *in.TransitGateway.PowerVSConnection.ID != "" {
+			out.TransitGateway.PowerVSConnection.ID = *in.TransitGateway.PowerVSConnection.ID
+		}
+	}
+
+	// Convert COSInstance
+	if in.COSInstance != nil && in.COSInstance.ID != nil && *in.COSInstance.ID != "" {
+		out.COSInstance.ID = *in.COSInstance.ID
+	}
+
 	// Move legacy conditions (v1beta2) to the deprecated field.
 	if in.Conditions == nil {
 		return nil
@@ -83,6 +153,91 @@ func Convert_v1beta3_IBMPowerVSClusterStatus_To_v1beta2_IBMPowerVSClusterStatus(
 	// Move initialization to old field
 	out.Ready = ptr.Deref(in.Initialization.Provisioned, false)
 
+	// Convert Workspace to ServiceInstance in Status
+	if in.Workspace.ID != "" {
+		out.ServiceInstance = &ResourceReference{
+			ID: ptr.To(in.Workspace.ID),
+		}
+	}
+
+	// Convert ResourceGroup
+	if in.ResourceGroup.ID != "" {
+		out.ResourceGroup = &ResourceReference{
+			ID: ptr.To(in.ResourceGroup.ID),
+		}
+	}
+
+	// Convert Network
+	if in.Network.ID != "" {
+		out.Network = &ResourceReference{
+			ID: ptr.To(in.Network.ID),
+		}
+	}
+
+	// Convert DHCPServer
+	if in.DHCPServer.ID != "" {
+		out.DHCPServer = &ResourceReference{
+			ID: ptr.To(in.DHCPServer.ID),
+		}
+	}
+
+	// Convert VPC
+	if in.VPC.ID != "" {
+		out.VPC = &ResourceReference{
+			ID: ptr.To(in.VPC.ID),
+		}
+	}
+
+	// Convert VPCSubnets
+	if len(in.VPCSubnets) > 0 {
+		out.VPCSubnet = make(map[string]ResourceReference)
+		for _, subnet := range in.VPCSubnets {
+			if subnet.ID != "" {
+				out.VPCSubnet[subnet.ID] = ResourceReference{
+					ID: ptr.To(subnet.ID),
+				}
+			}
+		}
+	}
+
+	// Convert LoadBalancers
+	if len(in.LoadBalancers) > 0 {
+		out.LoadBalancers = make(map[string]VPCLoadBalancerStatus)
+		for _, lb := range in.LoadBalancers {
+			if lb.ID != "" {
+				out.LoadBalancers[lb.ID] = VPCLoadBalancerStatus{
+					ID:       ptr.To(lb.ID),
+					State:    VPCLoadBalancerState(lb.State),
+					Hostname: ptr.To(lb.Hostname),
+				}
+			}
+		}
+	}
+
+	// Convert TransitGateway
+	if in.TransitGateway.ID != "" {
+		out.TransitGateway = &TransitGatewayStatus{
+			ID: ptr.To(in.TransitGateway.ID),
+		}
+		if in.TransitGateway.VPCConnection.ID != "" {
+			out.TransitGateway.VPCConnection = &ResourceReference{
+				ID: ptr.To(in.TransitGateway.VPCConnection.ID),
+			}
+		}
+		if in.TransitGateway.PowerVSConnection.ID != "" {
+			out.TransitGateway.PowerVSConnection = &ResourceReference{
+				ID: ptr.To(in.TransitGateway.PowerVSConnection.ID),
+			}
+		}
+	}
+
+	// Convert COSInstance
+	if in.COSInstance.ID != "" {
+		out.COSInstance = &ResourceReference{
+			ID: ptr.To(in.COSInstance.ID),
+		}
+	}
+
 	// Move new conditions (v1beta2) to the v1beta2 field.
 	if in.Conditions == nil {
 		return nil
@@ -104,6 +259,14 @@ func Convert_v1beta2_IBMPowerVSMachineStatus_To_v1beta3_IBMPowerVSMachineStatus(
 	// Retrieve new conditions (v1beta2) from the v1beta2 field.
 	if in.V1Beta2 != nil {
 		out.Conditions = in.V1Beta2.Conditions
+	}
+
+	// Convert initialization status
+	out.Initialization.Provisioned = ptr.To(in.Ready)
+
+	// Convert Zone from v1beta2 to v1beta3
+	if in.Zone != nil && *in.Zone != "" {
+		out.Zone = *in.Zone
 	}
 
 	// Move legacy conditions (v1beta2) to the deprecated field.
@@ -141,6 +304,13 @@ func Convert_v1beta3_IBMPowerVSMachineStatus_To_v1beta2_IBMPowerVSMachineStatus(
 
 	// Move initialization to old field
 	out.Ready = ptr.Deref(in.Initialization.Provisioned, false)
+
+	// Convert Zone from v1beta3 to v1beta2
+	if in.Zone != "" {
+		out.Zone = ptr.To(in.Zone)
+	} else {
+		out.Zone = nil
+	}
 
 	// Move new conditions (v1beta2) to the v1beta2 field.
 	if in.Conditions == nil {
@@ -382,16 +552,19 @@ func Convert_v1beta2_IBMPowerVSMachineSpec_To_v1beta3_IBMPowerVSMachineSpec(in *
 		}
 	}
 
-	// Manual conversion for ServiceInstanceID to ServiceInstance
-	// Only set ServiceInstance if ServiceInstanceID was explicitly set in v1beta2
+	// Manual conversion for ServiceInstanceID/ServiceInstance to Workspace
+	// In v1beta3, ServiceInstance has been replaced with Workspace
 	if in.ServiceInstanceID != "" {
-		if out.ServiceInstance == nil {
-			out.ServiceInstance = &infrav1.IBMPowerVSResourceReference{}
+		// Convert deprecated ServiceInstanceID to Workspace
+		out.Workspace.ID = in.ServiceInstanceID
+	} else if in.ServiceInstance != nil {
+		// Convert ServiceInstance to Workspace
+		if in.ServiceInstance.ID != nil {
+			out.Workspace.ID = *in.ServiceInstance.ID
 		}
-		out.ServiceInstance.ID = ptr.To(in.ServiceInstanceID)
-	} else if in.ServiceInstance == nil {
-		// If ServiceInstanceID is empty and ServiceInstance is nil in v1beta2, keep it nil in v1beta3
-		out.ServiceInstance = nil
+		if in.ServiceInstance.Name != nil {
+			out.Workspace.Name = *in.ServiceInstance.Name
+		}
 	}
 
 	return nil
@@ -413,9 +586,19 @@ func Convert_v1beta3_IBMPowerVSMachineSpec_To_v1beta2_IBMPowerVSMachineSpec(in *
 		out.ImageRef = nil
 	}
 
-	// Manual conversion for ServiceInstance to ServiceInstanceID (deprecated field)
-	if in.ServiceInstance != nil && in.ServiceInstance.ID != nil {
-		out.ServiceInstanceID = *in.ServiceInstance.ID
+	// Manual conversion for Workspace to ServiceInstance/ServiceInstanceID
+	// In v1beta3, ServiceInstance has been replaced with Workspace
+	if in.Workspace.ID != "" {
+		out.ServiceInstanceID = in.Workspace.ID
+		// Also populate ServiceInstance for backward compatibility
+		out.ServiceInstance = &IBMPowerVSResourceReference{
+			ID: ptr.To(in.Workspace.ID),
+		}
+	} else if in.Workspace.Name != "" {
+		// If only Name is set, populate ServiceInstance
+		out.ServiceInstance = &IBMPowerVSResourceReference{
+			Name: ptr.To(in.Workspace.Name),
+		}
 	}
 
 	return nil
@@ -427,16 +610,128 @@ func Convert_v1beta2_IBMPowerVSClusterSpec_To_v1beta3_IBMPowerVSClusterSpec(in *
 		return err
 	}
 
-	// Manual conversion for ServiceInstanceID to ServiceInstance
-	// Only set ServiceInstance if ServiceInstanceID was explicitly set in v1beta2
-	if in.ServiceInstanceID != "" {
-		if out.ServiceInstance == nil {
-			out.ServiceInstance = &infrav1.IBMPowerVSResourceReference{}
+	// Convert ServiceInstanceID/ServiceInstance to Workspace
+	if in.ServiceInstanceID != "" || in.ServiceInstance != nil {
+		out.Workspace.Type = infrav1.SourceTypeReference
+		if in.ServiceInstanceID != "" {
+			out.Workspace.Reference.ID = in.ServiceInstanceID
+		} else if in.ServiceInstance != nil && in.ServiceInstance.ID != nil {
+			out.Workspace.Reference.ID = *in.ServiceInstance.ID
 		}
-		out.ServiceInstance.ID = ptr.To(in.ServiceInstanceID)
-	} else if in.ServiceInstance == nil {
-		// If ServiceInstanceID is empty and ServiceInstance is nil in v1beta2, keep it nil in v1beta3
-		out.ServiceInstance = nil
+		if in.ServiceInstance != nil && in.ServiceInstance.Name != nil {
+			out.Workspace.Reference.Name = *in.ServiceInstance.Name
+		}
+		// Clear provision when using reference
+		out.Workspace.Provision = infrav1.WorkspaceProvisionConfig{}
+	}
+
+	// Convert ResourceGroup
+	if in.ResourceGroup != nil {
+		if in.ResourceGroup.ID != nil {
+			out.ResourceGroup.ID = *in.ResourceGroup.ID
+		}
+		if in.ResourceGroup.Name != nil {
+			out.ResourceGroup.Name = *in.ResourceGroup.Name
+		}
+	}
+
+	// Convert Network - v1beta2 Network + DHCPServer → v1beta3 Network (Type/Reference/Provision)
+	// Note: RegEx field is dropped in v1beta3 (not supported in ResourceIdentifier)
+	if in.Network.ID != nil || in.Network.Name != nil {
+		out.Network.Type = infrav1.SourceTypeReference
+		if in.Network.ID != nil {
+			out.Network.Reference.ID = *in.Network.ID
+		}
+		if in.Network.Name != nil {
+			out.Network.Reference.Name = *in.Network.Name
+		}
+		// Clear provision when using reference
+		out.Network.Provision = infrav1.NetworkProvisionConfig{}
+	} else if in.DHCPServer != nil {
+		// If no network but DHCPServer is specified, it means provision
+		out.Network.Type = infrav1.SourceTypeProvision
+		if in.DHCPServer.Name != nil {
+			out.Network.Provision.DHCPServer.Name = *in.DHCPServer.Name
+		}
+		if in.DHCPServer.Cidr != nil {
+			out.Network.Provision.DHCPServer.CIDR = *in.DHCPServer.Cidr
+		}
+		if in.DHCPServer.DNSServer != nil {
+			out.Network.Provision.DHCPServer.DNSServer = *in.DHCPServer.DNSServer
+		}
+		if in.DHCPServer.Snat != nil {
+			if *in.DHCPServer.Snat {
+				out.Network.Provision.DHCPServer.Snat = infrav1.DHCPSnatPolicyEnabled
+			} else {
+				out.Network.Provision.DHCPServer.Snat = infrav1.DHCPSnatPolicyDisabled
+			}
+		}
+		// Clear reference when using provision
+		out.Network.Reference = infrav1.ResourceIdentifier{}
+	}
+
+	// Convert TransitGateway
+	if in.TransitGateway != nil {
+		if in.TransitGateway.ID != nil {
+			out.TransitGateway.Type = infrav1.SourceTypeReference
+			out.TransitGateway.Reference.ID = *in.TransitGateway.ID
+			if in.TransitGateway.Name != nil {
+				out.TransitGateway.Reference.Name = *in.TransitGateway.Name
+			}
+			// Clear provision when using reference
+			out.TransitGateway.Provision = infrav1.TransitGatewayProvisionConfig{}
+		} else if in.TransitGateway.Name != nil {
+			// Name only - assume provision
+			out.TransitGateway.Type = infrav1.SourceTypeProvision
+			out.TransitGateway.Provision.Name = *in.TransitGateway.Name
+			// Clear reference when using provision
+			out.TransitGateway.Reference = infrav1.TransitGatewayReferenceConfig{}
+		}
+	}
+
+	// Convert VPC
+	if in.VPC != nil {
+		if in.VPC.ID != nil {
+			out.VPC.Type = infrav1.SourceTypeReference
+			out.VPC.Reference.ID = *in.VPC.ID
+			if in.VPC.Name != nil {
+				out.VPC.Reference.Name = *in.VPC.Name
+			}
+			// Clear provision when using reference
+			out.VPC.Provision = infrav1.VPCProvisionConfig{}
+		} else if in.VPC.Name != nil {
+			// Name only - assume provision
+			out.VPC.Type = infrav1.SourceTypeProvision
+			out.VPC.Provision.Name = *in.VPC.Name
+			// Clear reference when using provision
+			out.VPC.Reference = infrav1.ResourceIdentifier{}
+		}
+		if in.VPC.Region != nil {
+			out.VPC.Region = *in.VPC.Region
+		}
+	}
+
+	// Convert CosInstance
+	if in.CosInstance != nil && in.CosInstance.Name != "" {
+		// v1beta2 CosInstance is simpler - map to provision
+		out.CosInstance.Type = infrav1.SourceTypeProvision
+		out.CosInstance.Provision.Name = in.CosInstance.Name
+		out.CosInstance.Provision.BucketName = in.CosInstance.BucketName
+		if in.CosInstance.BucketRegion != "" {
+			out.CosInstance.BucketRegion = in.CosInstance.BucketRegion
+		}
+		// Clear reference when using provision
+		out.CosInstance.Reference = infrav1.COSReference{}
+	}
+
+	// Convert Ignition
+	if in.Ignition != nil {
+		out.Ignition.Version = in.Ignition.Version
+	}
+
+	// Preserve Zone - only set if non-empty
+	if in.Zone != nil && *in.Zone != "" {
+		out.Zone = *in.Zone
 	}
 
 	return nil
@@ -448,16 +743,24 @@ func Convert_v1beta2_IBMPowerVSImageSpec_To_v1beta3_IBMPowerVSImageSpec(in *IBMP
 		return err
 	}
 
-	// Manual conversion for ServiceInstanceID to ServiceInstance
-	// Only set ServiceInstance if ServiceInstanceID was explicitly set in v1beta2
+	// Manual conversion for ServiceInstanceID/ServiceInstance to Workspace
+	// In v1beta3, ServiceInstance has been replaced with Workspace
 	if in.ServiceInstanceID != "" {
-		if out.ServiceInstance == nil {
-			out.ServiceInstance = &infrav1.IBMPowerVSResourceReference{}
+		// Convert deprecated ServiceInstanceID to Workspace
+		out.Workspace.ID = in.ServiceInstanceID
+	} else if in.ServiceInstance != nil {
+		// Convert ServiceInstance to Workspace
+		if in.ServiceInstance.ID != nil {
+			out.Workspace.ID = *in.ServiceInstance.ID
 		}
-		out.ServiceInstance.ID = ptr.To(in.ServiceInstanceID)
-	} else if in.ServiceInstance == nil {
-		// If ServiceInstanceID is empty and ServiceInstance is nil in v1beta2, keep it nil in v1beta3
-		out.ServiceInstance = nil
+		if in.ServiceInstance.Name != nil {
+			out.Workspace.Name = *in.ServiceInstance.Name
+		}
+	}
+
+	// Convert Region field
+	if in.Region != nil {
+		out.Region = *in.Region
 	}
 
 	return nil
@@ -469,9 +772,156 @@ func Convert_v1beta3_IBMPowerVSClusterSpec_To_v1beta2_IBMPowerVSClusterSpec(in *
 		return err
 	}
 
-	// Manual conversion for ServiceInstance to ServiceInstanceID (deprecated field)
-	if in.ServiceInstance != nil && in.ServiceInstance.ID != nil {
-		out.ServiceInstanceID = *in.ServiceInstance.ID
+	// Convert Workspace to ServiceInstanceID/ServiceInstance
+	if in.Workspace.Type != "" {
+		if in.Workspace.Type == infrav1.SourceTypeReference {
+			if in.Workspace.Reference.ID != "" {
+				out.ServiceInstanceID = in.Workspace.Reference.ID
+				out.ServiceInstance = &IBMPowerVSResourceReference{
+					ID: ptr.To(in.Workspace.Reference.ID),
+				}
+				if in.Workspace.Reference.Name != "" {
+					out.ServiceInstance.Name = ptr.To(in.Workspace.Reference.Name)
+				}
+			} else if in.Workspace.Reference.Name != "" {
+				out.ServiceInstance = &IBMPowerVSResourceReference{
+					Name: ptr.To(in.Workspace.Reference.Name),
+				}
+			}
+		} else if in.Workspace.Type == infrav1.SourceTypeProvision {
+			if in.Workspace.Provision.Name != "" {
+				out.ServiceInstance = &IBMPowerVSResourceReference{
+					Name: ptr.To(in.Workspace.Provision.Name),
+				}
+			}
+		}
+	}
+
+	// Convert ResourceGroup
+	if in.ResourceGroup.ID != "" || in.ResourceGroup.Name != "" {
+		out.ResourceGroup = &IBMPowerVSResourceReference{}
+		if in.ResourceGroup.ID != "" {
+			out.ResourceGroup.ID = ptr.To(in.ResourceGroup.ID)
+		}
+		if in.ResourceGroup.Name != "" {
+			out.ResourceGroup.Name = ptr.To(in.ResourceGroup.Name)
+		}
+	}
+
+	// Convert Network - v1beta3 Network (Type/Reference/Provision) → v1beta2 Network + DHCPServer
+	if in.Network.Type != "" {
+		if in.Network.Type == infrav1.SourceTypeReference {
+			if in.Network.Reference.ID != "" {
+				out.Network.ID = ptr.To(in.Network.Reference.ID)
+			}
+			if in.Network.Reference.Name != "" {
+				out.Network.Name = ptr.To(in.Network.Reference.Name)
+			}
+			// RegEx field doesn't exist in v1beta3 ResourceIdentifier
+		} else if in.Network.Type == infrav1.SourceTypeProvision {
+			// Provision case - map DHCPServer config
+			if in.Network.Provision.DHCPServer.Name != "" || in.Network.Provision.DHCPServer.CIDR != "" || in.Network.Provision.DHCPServer.DNSServer != "" || in.Network.Provision.DHCPServer.Snat != "" {
+				out.DHCPServer = &DHCPServer{}
+				if in.Network.Provision.DHCPServer.Name != "" {
+					out.DHCPServer.Name = ptr.To(in.Network.Provision.DHCPServer.Name)
+				}
+				if in.Network.Provision.DHCPServer.CIDR != "" {
+					out.DHCPServer.Cidr = ptr.To(in.Network.Provision.DHCPServer.CIDR)
+				}
+				if in.Network.Provision.DHCPServer.DNSServer != "" {
+					out.DHCPServer.DNSServer = ptr.To(in.Network.Provision.DHCPServer.DNSServer)
+				}
+				if in.Network.Provision.DHCPServer.Snat != "" {
+					snat := in.Network.Provision.DHCPServer.Snat == infrav1.DHCPSnatPolicyEnabled
+					out.DHCPServer.Snat = ptr.To(snat)
+				}
+			}
+		}
+	}
+
+	// Convert TransitGateway
+	if in.TransitGateway.Type != "" {
+		if in.TransitGateway.Type == infrav1.SourceTypeReference {
+			out.TransitGateway = &TransitGateway{}
+			if in.TransitGateway.Reference.ID != "" {
+				out.TransitGateway.ID = ptr.To(in.TransitGateway.Reference.ID)
+			}
+			if in.TransitGateway.Reference.Name != "" {
+				out.TransitGateway.Name = ptr.To(in.TransitGateway.Reference.Name)
+			}
+		} else if in.TransitGateway.Type == infrav1.SourceTypeProvision {
+			out.TransitGateway = &TransitGateway{}
+			if in.TransitGateway.Provision.Name != "" {
+				out.TransitGateway.Name = ptr.To(in.TransitGateway.Provision.Name)
+			}
+		}
+	}
+
+	// Convert VPC
+	if in.VPC.Type != "" {
+		if in.VPC.Type == infrav1.SourceTypeReference {
+			out.VPC = &VPCResourceReference{}
+			if in.VPC.Reference.ID != "" {
+				out.VPC.ID = ptr.To(in.VPC.Reference.ID)
+			}
+			if in.VPC.Reference.Name != "" {
+				out.VPC.Name = ptr.To(in.VPC.Reference.Name)
+			}
+			if in.VPC.Region != "" {
+				out.VPC.Region = ptr.To(in.VPC.Region)
+			}
+		} else if in.VPC.Type == infrav1.SourceTypeProvision {
+			out.VPC = &VPCResourceReference{}
+			if in.VPC.Provision.Name != "" {
+				out.VPC.Name = ptr.To(in.VPC.Provision.Name)
+			}
+			if in.VPC.Region != "" {
+				out.VPC.Region = ptr.To(in.VPC.Region)
+			}
+		}
+	}
+
+	// Convert CosInstance
+	if in.CosInstance.Type != "" {
+		if in.CosInstance.Type == infrav1.SourceTypeReference {
+			out.CosInstance = &CosInstance{}
+			if in.CosInstance.Reference.Instance.Name != "" {
+				out.CosInstance.Name = in.CosInstance.Reference.Instance.Name
+			}
+			if in.CosInstance.Reference.BucketName != "" {
+				out.CosInstance.BucketName = in.CosInstance.Reference.BucketName
+			}
+			if in.CosInstance.BucketRegion != "" {
+				out.CosInstance.BucketRegion = in.CosInstance.BucketRegion
+			}
+		} else if in.CosInstance.Type == infrav1.SourceTypeProvision {
+			out.CosInstance = &CosInstance{}
+			if in.CosInstance.Provision.Name != "" {
+				out.CosInstance.Name = in.CosInstance.Provision.Name
+			}
+			if in.CosInstance.Provision.BucketName != "" {
+				out.CosInstance.BucketName = in.CosInstance.Provision.BucketName
+			}
+			if in.CosInstance.BucketRegion != "" {
+				out.CosInstance.BucketRegion = in.CosInstance.BucketRegion
+			}
+		}
+	}
+
+	// Convert Ignition - only set if Version is non-empty
+	if in.Ignition.Version != "" {
+		out.Ignition = &Ignition{
+			Version: in.Ignition.Version,
+		}
+	} else {
+		out.Ignition = nil
+	}
+
+	// Preserve Zone - always set pointer even if empty to maintain round-trip
+	if in.Zone != "" {
+		out.Zone = ptr.To(in.Zone)
+	} else {
+		out.Zone = nil
 	}
 
 	return nil
@@ -483,10 +933,673 @@ func Convert_v1beta3_IBMPowerVSImageSpec_To_v1beta2_IBMPowerVSImageSpec(in *infr
 		return err
 	}
 
-	// Manual conversion for ServiceInstance to ServiceInstanceID (deprecated field)
-	if in.ServiceInstance != nil && in.ServiceInstance.ID != nil {
-		out.ServiceInstanceID = *in.ServiceInstance.ID
+	// Manual conversion for Workspace to ServiceInstance/ServiceInstanceID
+	// In v1beta3, ServiceInstance has been replaced with Workspace
+	if in.Workspace.ID != "" || in.Workspace.Name != "" {
+		if in.Workspace.ID != "" {
+			out.ServiceInstanceID = in.Workspace.ID
+		}
+		out.ServiceInstance = &IBMPowerVSResourceReference{}
+		if in.Workspace.ID != "" {
+			out.ServiceInstance.ID = ptr.To(in.Workspace.ID)
+		}
+		if in.Workspace.Name != "" {
+			out.ServiceInstance.Name = ptr.To(in.Workspace.Name)
+		}
 	}
 
+	// Convert Region field - only set if non-empty
+	if in.Region != "" {
+		out.Region = ptr.To(in.Region)
+	} else {
+		out.Region = nil
+	}
+
+	// Convert Bucket field - only set if non-empty
+	if in.Bucket != "" {
+		out.Bucket = ptr.To(in.Bucket)
+	} else {
+		out.Bucket = nil
+	}
+
+	// Convert Object field - only set if non-empty
+	if in.Object != "" {
+		out.Object = ptr.To(in.Object)
+	} else {
+		out.Object = nil
+	}
+
+	return nil
+}
+
+// Convert_v1beta2_CosInstance_To_v1beta3_CosInstance converts v1beta2 CosInstance to v1beta3.
+func Convert_v1beta2_CosInstance_To_v1beta3_CosInstance(in *CosInstance, out *infrav1.CosInstance, s apimachineryconversion.Scope) error {
+	// v1beta2 CosInstance is always a reference (no provision option)
+	out.Type = infrav1.SourceTypeReference
+	out.BucketRegion = in.BucketRegion
+
+	// Set reference fields
+	out.Reference.Instance.Name = in.Name
+	out.Reference.BucketName = in.BucketName
+
+	return nil
+}
+
+// Convert_v1beta3_CosInstance_To_v1beta2_CosInstance converts v1beta3 CosInstance to v1beta2.
+func Convert_v1beta3_CosInstance_To_v1beta2_CosInstance(in *infrav1.CosInstance, out *CosInstance, s apimachineryconversion.Scope) error {
+	out.BucketRegion = in.BucketRegion
+
+	if in.Type == infrav1.SourceTypeReference {
+		out.Name = in.Reference.Instance.Name
+		out.BucketName = in.Reference.BucketName
+	} else if in.Type == infrav1.SourceTypeProvision {
+		// Convert provision to reference-like structure
+		out.Name = in.Provision.Name
+		out.BucketName = in.Provision.BucketName
+	}
+
+	return nil
+}
+
+// Convert_v1beta2_DHCPServer_To_v1beta3_DHCPServer converts v1beta2 DHCPServer to v1beta3.
+func Convert_v1beta2_DHCPServer_To_v1beta3_DHCPServer(in *DHCPServer, out *infrav1.DHCPServer, s apimachineryconversion.Scope) error {
+	if in.Name != nil {
+		out.Name = *in.Name
+	}
+	if in.Cidr != nil {
+		out.CIDR = *in.Cidr
+	}
+	if in.DNSServer != nil {
+		out.DNSServer = *in.DNSServer
+	}
+	if in.Snat != nil {
+		if *in.Snat {
+			out.Snat = infrav1.DHCPSnatPolicyEnabled
+		} else {
+			out.Snat = infrav1.DHCPSnatPolicyDisabled
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta3_DHCPServer_To_v1beta2_DHCPServer converts v1beta3 DHCPServer to v1beta2.
+func Convert_v1beta3_DHCPServer_To_v1beta2_DHCPServer(in *infrav1.DHCPServer, out *DHCPServer, s apimachineryconversion.Scope) error {
+	if in.Name != "" {
+		out.Name = ptr.To(in.Name)
+	}
+	if in.CIDR != "" {
+		out.Cidr = ptr.To(in.CIDR)
+	}
+	if in.DNSServer != "" {
+		out.DNSServer = ptr.To(in.DNSServer)
+	}
+	if in.Snat != "" {
+		out.Snat = ptr.To(in.Snat == infrav1.DHCPSnatPolicyEnabled)
+	}
+
+	return nil
+}
+
+// Convert_v1beta2_ResourceReference_To_v1beta3_ResourceReference converts v1beta2 ResourceReference to v1beta3.
+func Convert_v1beta2_ResourceReference_To_v1beta3_ResourceReference(in *ResourceReference, out *infrav1.ResourceReference, s apimachineryconversion.Scope) error {
+	if in.ID != nil {
+		out.ID = *in.ID
+	}
+	// v1beta2 ResourceReference only has ID field, v1beta3 added Name
+	// v1beta3 ResourceReference doesn't have ControllerCreated field
+	return nil
+}
+
+// Convert_v1beta3_ResourceReference_To_v1beta2_ResourceReference converts v1beta3 ResourceReference to v1beta2.
+func Convert_v1beta3_ResourceReference_To_v1beta2_ResourceReference(in *infrav1.ResourceReference, out *ResourceReference, s apimachineryconversion.Scope) error {
+	if in.ID != "" {
+		out.ID = ptr.To(in.ID)
+	} else {
+		out.ID = nil
+	}
+	// v1beta2 ResourceReference only has ID field, Name is lost in conversion
+	// Don't set ControllerCreated if ID is empty
+	if in.ID != "" {
+		out.ControllerCreated = ptr.To(false)
+	} else {
+		out.ControllerCreated = nil
+	}
+	return nil
+}
+
+// Convert_v1beta2_TransitGateway_To_v1beta3_TransitGateway converts v1beta2 TransitGateway to v1beta3.
+func Convert_v1beta2_TransitGateway_To_v1beta3_TransitGateway(in *TransitGateway, out *infrav1.TransitGateway, s apimachineryconversion.Scope) error {
+	// v1beta2 TransitGateway is always a reference
+	out.Type = infrav1.SourceTypeReference
+
+	if in.ID != nil {
+		out.Reference.ID = *in.ID
+	}
+	if in.Name != nil {
+		out.Reference.Name = *in.Name
+	}
+
+	// Convert GlobalRouting to Routing
+	if in.GlobalRouting != nil {
+		if *in.GlobalRouting {
+			out.Provision.Routing = infrav1.TransitGatewayRoutingGlobal
+		} else {
+			out.Provision.Routing = infrav1.TransitGatewayRoutingLocal
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta3_TransitGateway_To_v1beta2_TransitGateway converts v1beta3 TransitGateway to v1beta2.
+func Convert_v1beta3_TransitGateway_To_v1beta2_TransitGateway(in *infrav1.TransitGateway, out *TransitGateway, s apimachineryconversion.Scope) error {
+	if in.Type == infrav1.SourceTypeReference {
+		if in.Reference.ID != "" {
+			out.ID = ptr.To(in.Reference.ID)
+		}
+		if in.Reference.Name != "" {
+			out.Name = ptr.To(in.Reference.Name)
+		}
+	} else if in.Type == infrav1.SourceTypeProvision {
+		if in.Provision.Name != "" {
+			out.Name = ptr.To(in.Provision.Name)
+		}
+		// Convert Routing to GlobalRouting
+		if in.Provision.Routing != "" {
+			out.GlobalRouting = ptr.To(in.Provision.Routing == infrav1.TransitGatewayRoutingGlobal)
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta2_TransitGatewayStatus_To_v1beta3_TransitGatewayStatus converts v1beta2 TransitGatewayStatus to v1beta3.
+func Convert_v1beta2_TransitGatewayStatus_To_v1beta3_TransitGatewayStatus(in *TransitGatewayStatus, out *infrav1.TransitGatewayStatus, s apimachineryconversion.Scope) error {
+	if in.ID != nil {
+		out.ID = *in.ID
+	}
+
+	if in.VPCConnection != nil {
+		if in.VPCConnection.ID != nil {
+			out.VPCConnection.ID = *in.VPCConnection.ID
+		}
+	}
+
+	if in.PowerVSConnection != nil {
+		if in.PowerVSConnection.ID != nil {
+			out.PowerVSConnection.ID = *in.PowerVSConnection.ID
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta3_TransitGatewayStatus_To_v1beta2_TransitGatewayStatus converts v1beta3 TransitGatewayStatus to v1beta2.
+func Convert_v1beta3_TransitGatewayStatus_To_v1beta2_TransitGatewayStatus(in *infrav1.TransitGatewayStatus, out *TransitGatewayStatus, s apimachineryconversion.Scope) error {
+	if in.ID != "" {
+		out.ID = ptr.To(in.ID)
+	}
+	out.ControllerCreated = ptr.To(false)
+
+	if in.VPCConnection.ID != "" {
+		out.VPCConnection = &ResourceReference{
+			ID:                ptr.To(in.VPCConnection.ID),
+			ControllerCreated: ptr.To(false),
+		}
+	}
+
+	if in.PowerVSConnection.ID != "" {
+		out.PowerVSConnection = &ResourceReference{
+			ID:                ptr.To(in.PowerVSConnection.ID),
+			ControllerCreated: ptr.To(false),
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta2_VPCLoadBalancerStatus_To_v1beta3_VPCLoadBalancerStatus converts v1beta2 VPCLoadBalancerStatus to v1beta3.
+func Convert_v1beta2_VPCLoadBalancerStatus_To_v1beta3_VPCLoadBalancerStatus(in *VPCLoadBalancerStatus, out *infrav1.VPCLoadBalancerStatus, s apimachineryconversion.Scope) error {
+	if in.ID != nil {
+		out.ID = *in.ID
+	}
+	if in.State != "" {
+		out.State = infrav1.VPCLoadBalancerState(in.State)
+	}
+	if in.Hostname != nil {
+		out.Hostname = *in.Hostname
+	}
+	// Name field: v1beta2 doesn't have it, leave empty
+	return nil
+}
+
+// Convert_v1beta3_VPCLoadBalancerStatus_To_v1beta2_VPCLoadBalancerStatus converts v1beta3 VPCLoadBalancerStatus to v1beta2.
+func Convert_v1beta3_VPCLoadBalancerStatus_To_v1beta2_VPCLoadBalancerStatus(in *infrav1.VPCLoadBalancerStatus, out *VPCLoadBalancerStatus, s apimachineryconversion.Scope) error {
+	if in.ID != "" {
+		out.ID = ptr.To(in.ID)
+	}
+	if in.State != "" {
+		out.State = VPCLoadBalancerState(in.State)
+	}
+	if in.Hostname != "" {
+		out.Hostname = ptr.To(in.Hostname)
+	}
+	out.ControllerCreated = ptr.To(false)
+	return nil
+}
+
+// Convert_v1beta2_VPCSecurityGroupStatus_To_v1beta3_VPCSecurityGroupStatus converts v1beta2 VPCSecurityGroupStatus to v1beta3.
+func Convert_v1beta2_VPCSecurityGroupStatus_To_v1beta3_VPCSecurityGroupStatus(in *VPCSecurityGroupStatus, out *infrav1.VPCSecurityGroupStatus, s apimachineryconversion.Scope) error {
+	if in.ID != nil {
+		out.ID = *in.ID
+	}
+	if in.RuleIDs != nil {
+		out.RuleIDs = make([]string, len(in.RuleIDs))
+		for i, ruleID := range in.RuleIDs {
+			if ruleID != nil {
+				out.RuleIDs[i] = *ruleID
+			}
+		}
+	}
+	// Name field: v1beta2 doesn't have it, leave empty
+	return nil
+}
+
+// Convert_v1beta3_VPCSecurityGroupStatus_To_v1beta2_VPCSecurityGroupStatus converts v1beta3 VPCSecurityGroupStatus to v1beta2.
+func Convert_v1beta3_VPCSecurityGroupStatus_To_v1beta2_VPCSecurityGroupStatus(in *infrav1.VPCSecurityGroupStatus, out *VPCSecurityGroupStatus, s apimachineryconversion.Scope) error {
+	if in.ID != "" {
+		out.ID = ptr.To(in.ID)
+	}
+	if len(in.RuleIDs) > 0 {
+		out.RuleIDs = make([]*string, len(in.RuleIDs))
+		for i, ruleID := range in.RuleIDs {
+			out.RuleIDs[i] = ptr.To(ruleID)
+		}
+	}
+	out.ControllerCreated = ptr.To(false)
+	return nil
+}
+
+// Convert_v1beta2_AdditionalListenerSpec_To_v1beta3_AdditionalListenerSpec converts v1beta2 AdditionalListenerSpec to v1beta3.
+func Convert_v1beta2_AdditionalListenerSpec_To_v1beta3_AdditionalListenerSpec(in *AdditionalListenerSpec, out *infrav1.AdditionalListenerSpec, s apimachineryconversion.Scope) error {
+	if in.DefaultPoolName != nil {
+		out.DefaultPoolName = *in.DefaultPoolName
+	}
+	out.Port = in.Port
+
+	// Protocol: v1beta2 uses pointer, v1beta3 uses value
+	if in.Protocol != nil {
+		out.Protocol = infrav1.VPCLoadBalancerListenerProtocol(*in.Protocol)
+	}
+
+	out.Selector = in.Selector
+	return nil
+}
+
+// Convert_v1beta3_AdditionalListenerSpec_To_v1beta2_AdditionalListenerSpec converts v1beta3 AdditionalListenerSpec to v1beta2.
+func Convert_v1beta3_AdditionalListenerSpec_To_v1beta2_AdditionalListenerSpec(in *infrav1.AdditionalListenerSpec, out *AdditionalListenerSpec, s apimachineryconversion.Scope) error {
+	if in.DefaultPoolName != "" {
+		out.DefaultPoolName = ptr.To(in.DefaultPoolName)
+	}
+	out.Port = in.Port
+
+	// Protocol: v1beta3 uses value, v1beta2 uses pointer
+	if in.Protocol != "" {
+		out.Protocol = ptr.To(VPCLoadBalancerListenerProtocol(in.Protocol))
+	}
+
+	out.Selector = in.Selector
+	return nil
+}
+
+// Convert_v1beta2_VPCSecurityGroup_To_v1beta3_VPCSecurityGroup converts v1beta2 VPCSecurityGroup to v1beta3.
+func Convert_v1beta2_VPCSecurityGroup_To_v1beta3_VPCSecurityGroup(in *VPCSecurityGroup, out *infrav1.VPCSecurityGroup, s apimachineryconversion.Scope) error {
+	// v1beta2 VPCSecurityGroup is always a reference or provision based on whether ID is set
+	if in.ID != nil && *in.ID != "" {
+		out.Type = infrav1.SourceTypeReference
+		out.Reference.ID = *in.ID
+		if in.Name != nil {
+			out.Reference.Name = *in.Name
+		}
+	} else {
+		out.Type = infrav1.SourceTypeProvision
+		if in.Name != nil {
+			out.Provision.Name = *in.Name
+		}
+
+		// Convert rules
+		if in.Rules != nil {
+			out.Provision.Rules = make([]infrav1.VPCSecurityGroupRule, len(in.Rules))
+			for i := range in.Rules {
+				if err := Convert_v1beta2_VPCSecurityGroupRule_To_v1beta3_VPCSecurityGroupRule(in.Rules[i], &out.Provision.Rules[i], s); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Convert tags
+		if in.Tags != nil {
+			out.Provision.Tags = make([]string, len(in.Tags))
+			for i, tag := range in.Tags {
+				if tag != nil {
+					out.Provision.Tags[i] = *tag
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta3_VPCSecurityGroup_To_v1beta2_VPCSecurityGroup converts v1beta3 VPCSecurityGroup to v1beta2.
+func Convert_v1beta3_VPCSecurityGroup_To_v1beta2_VPCSecurityGroup(in *infrav1.VPCSecurityGroup, out *VPCSecurityGroup, s apimachineryconversion.Scope) error {
+	if in.Type == infrav1.SourceTypeReference {
+		if in.Reference.ID != "" {
+			out.ID = ptr.To(in.Reference.ID)
+		}
+		if in.Reference.Name != "" {
+			out.Name = ptr.To(in.Reference.Name)
+		}
+	} else if in.Type == infrav1.SourceTypeProvision {
+		if in.Provision.Name != "" {
+			out.Name = ptr.To(in.Provision.Name)
+		}
+
+		// Convert rules
+		if len(in.Provision.Rules) > 0 {
+			out.Rules = make([]*VPCSecurityGroupRule, len(in.Provision.Rules))
+			for i := range in.Provision.Rules {
+				out.Rules[i] = &VPCSecurityGroupRule{}
+				if err := Convert_v1beta3_VPCSecurityGroupRule_To_v1beta2_VPCSecurityGroupRule(&in.Provision.Rules[i], out.Rules[i], s); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Convert tags
+		if len(in.Provision.Tags) > 0 {
+			out.Tags = make([]*string, len(in.Provision.Tags))
+			for i, tag := range in.Provision.Tags {
+				out.Tags[i] = ptr.To(tag)
+			}
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta2_VPCSecurityGroupRule_To_v1beta3_VPCSecurityGroupRule converts v1beta2 VPCSecurityGroupRule to v1beta3.
+func Convert_v1beta2_VPCSecurityGroupRule_To_v1beta3_VPCSecurityGroupRule(in *VPCSecurityGroupRule, out *infrav1.VPCSecurityGroupRule, s apimachineryconversion.Scope) error {
+	out.Action = infrav1.VPCSecurityGroupRuleAction(in.Action)
+	out.Direction = infrav1.VPCSecurityGroupRuleDirection(in.Direction)
+
+	if in.Source != nil {
+		out.Source = &infrav1.VPCSecurityGroupRulePrototype{}
+		if err := Convert_v1beta2_VPCSecurityGroupRulePrototype_To_v1beta3_VPCSecurityGroupRulePrototype(in.Source, out.Source, s); err != nil {
+			return err
+		}
+	}
+
+	if in.Destination != nil {
+		out.Destination = &infrav1.VPCSecurityGroupRulePrototype{}
+		if err := Convert_v1beta2_VPCSecurityGroupRulePrototype_To_v1beta3_VPCSecurityGroupRulePrototype(in.Destination, out.Destination, s); err != nil {
+			return err
+		}
+	}
+
+	// SecurityGroupID is not in v1beta3, it's implicit
+	return nil
+}
+
+// Convert_v1beta2_IBMPowerVSResourceReference_To_v1beta3_NetworkSource converts IBMPowerVSResourceReference to NetworkSource.
+func Convert_v1beta2_IBMPowerVSResourceReference_To_v1beta3_NetworkSource(in *IBMPowerVSResourceReference, out *infrav1.NetworkSource, s apimachineryconversion.Scope) error {
+	// v1beta2 IBMPowerVSResourceReference is always a reference
+	out.Type = infrav1.SourceTypeReference
+
+	if in.ID != nil {
+		out.Reference.ID = *in.ID
+	}
+	if in.Name != nil {
+		out.Reference.Name = *in.Name
+	}
+
+	return nil
+}
+
+// Convert_v1beta3_NetworkSource_To_v1beta2_IBMPowerVSResourceReference converts NetworkSource to IBMPowerVSResourceReference.
+func Convert_v1beta3_NetworkSource_To_v1beta2_IBMPowerVSResourceReference(in *infrav1.NetworkSource, out *IBMPowerVSResourceReference, s apimachineryconversion.Scope) error {
+	if in.Type == infrav1.SourceTypeReference {
+		if in.Reference.ID != "" {
+			out.ID = ptr.To(in.Reference.ID)
+		} else {
+			out.ID = nil
+		}
+		if in.Reference.Name != "" {
+			out.Name = ptr.To(in.Reference.Name)
+		} else {
+			out.Name = nil
+		}
+	}
+	// Provision type cannot be represented in v1beta2
+	return nil
+}
+
+// Convert_v1beta2_Subnet_To_v1beta3_VPCSubnet converts v1beta2 Subnet to v1beta3 VPCSubnet.
+func Convert_v1beta2_Subnet_To_v1beta3_VPCSubnet(in *Subnet, out *infrav1.VPCSubnet, s apimachineryconversion.Scope) error {
+	// v1beta2 Subnet is always a reference or provision based on whether ID is set
+	if in.ID != nil && *in.ID != "" {
+		out.Type = infrav1.SourceTypeReference
+		out.Reference.ID = *in.ID
+		if in.Name != nil {
+			out.Reference.Name = *in.Name
+		}
+	} else {
+		out.Type = infrav1.SourceTypeProvision
+		if in.Name != nil {
+			out.Provision.Name = *in.Name
+		}
+		if in.Ipv4CidrBlock != nil {
+			out.Provision.CIDR = *in.Ipv4CidrBlock
+		}
+		if in.Zone != nil {
+			out.Provision.Zone = *in.Zone
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta3_VPCSubnet_To_v1beta2_Subnet converts v1beta3 VPCSubnet to v1beta2 Subnet.
+func Convert_v1beta3_VPCSubnet_To_v1beta2_Subnet(in *infrav1.VPCSubnet, out *Subnet, s apimachineryconversion.Scope) error {
+	if in.Type == infrav1.SourceTypeReference {
+		if in.Reference.ID != "" {
+			out.ID = ptr.To(in.Reference.ID)
+		}
+		if in.Reference.Name != "" {
+			out.Name = ptr.To(in.Reference.Name)
+		}
+	} else if in.Type == infrav1.SourceTypeProvision {
+		if in.Provision.Name != "" {
+			out.Name = ptr.To(in.Provision.Name)
+		}
+		if in.Provision.CIDR != "" {
+			out.Ipv4CidrBlock = ptr.To(in.Provision.CIDR)
+		}
+		if in.Provision.Zone != "" {
+			out.Zone = ptr.To(in.Provision.Zone)
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta2_VPCLoadBalancerSpec_To_v1beta3_VPCLoadBalancer converts v1beta2 VPCLoadBalancerSpec to v1beta3 VPCLoadBalancer.
+func Convert_v1beta2_VPCLoadBalancerSpec_To_v1beta3_VPCLoadBalancer(in *VPCLoadBalancerSpec, out *infrav1.VPCLoadBalancer, s apimachineryconversion.Scope) error {
+	// v1beta2 VPCLoadBalancerSpec is always a reference or provision based on whether ID is set
+	if in.ID != nil && *in.ID != "" {
+		out.Type = infrav1.SourceTypeReference
+		out.Reference.ID = *in.ID
+		if in.Name != "" {
+			out.Reference.Name = in.Name
+		}
+	} else {
+		out.Type = infrav1.SourceTypeProvision
+		if in.Name != "" {
+			out.Provision.Name = in.Name
+		}
+
+		// Convert Public to Visibility
+		if in.Public != nil {
+			if *in.Public {
+				out.Provision.Visibility = infrav1.VPCLoadBalancerVisibilityPublic
+			} else {
+				out.Provision.Visibility = infrav1.VPCLoadBalancerVisibilityPrivate
+			}
+		}
+
+		// Convert AdditionalListeners
+		if len(in.AdditionalListeners) > 0 {
+			out.Provision.AdditionalListeners = make([]infrav1.AdditionalListenerSpec, len(in.AdditionalListeners))
+			for i := range in.AdditionalListeners {
+				if err := Convert_v1beta2_AdditionalListenerSpec_To_v1beta3_AdditionalListenerSpec(&in.AdditionalListeners[i], &out.Provision.AdditionalListeners[i], s); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Convert BackendPools
+		if len(in.BackendPools) > 0 {
+			out.Provision.BackendPools = make([]infrav1.VPCLoadBalancerBackendPoolSpec, len(in.BackendPools))
+			for i := range in.BackendPools {
+				if err := Convert_v1beta2_VPCLoadBalancerBackendPoolSpec_To_v1beta3_VPCLoadBalancerBackendPoolSpec(&in.BackendPools[i], &out.Provision.BackendPools[i], s); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Convert SecurityGroups
+		if len(in.SecurityGroups) > 0 {
+			out.Provision.SecurityGroups = make([]infrav1.ResourceIdentifier, len(in.SecurityGroups))
+			for i, sg := range in.SecurityGroups {
+				if sg.ID != nil {
+					out.Provision.SecurityGroups[i].ID = *sg.ID
+				}
+				if sg.Name != nil {
+					out.Provision.SecurityGroups[i].Name = *sg.Name
+				}
+			}
+		}
+
+		// Convert Subnets
+		if len(in.Subnets) > 0 {
+			out.Provision.Subnets = make([]infrav1.ResourceIdentifier, len(in.Subnets))
+			for i, subnet := range in.Subnets {
+				if subnet.ID != nil {
+					out.Provision.Subnets[i].ID = *subnet.ID
+				}
+				if subnet.Name != nil {
+					out.Provision.Subnets[i].Name = *subnet.Name
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta3_VPCLoadBalancer_To_v1beta2_VPCLoadBalancerSpec converts v1beta3 VPCLoadBalancer to v1beta2 VPCLoadBalancerSpec.
+func Convert_v1beta3_VPCLoadBalancer_To_v1beta2_VPCLoadBalancerSpec(in *infrav1.VPCLoadBalancer, out *VPCLoadBalancerSpec, s apimachineryconversion.Scope) error {
+	if in.Type == infrav1.SourceTypeReference {
+		if in.Reference.ID != "" {
+			out.ID = ptr.To(in.Reference.ID)
+		}
+		if in.Reference.Name != "" {
+			out.Name = in.Reference.Name
+		}
+	} else if in.Type == infrav1.SourceTypeProvision {
+		if in.Provision.Name != "" {
+			out.Name = in.Provision.Name
+		}
+
+		// Convert Visibility to Public
+		if in.Provision.Visibility != "" {
+			out.Public = ptr.To(in.Provision.Visibility == infrav1.VPCLoadBalancerVisibilityPublic)
+		}
+
+		// Convert AdditionalListeners
+		if len(in.Provision.AdditionalListeners) > 0 {
+			out.AdditionalListeners = make([]AdditionalListenerSpec, len(in.Provision.AdditionalListeners))
+			for i := range in.Provision.AdditionalListeners {
+				if err := Convert_v1beta3_AdditionalListenerSpec_To_v1beta2_AdditionalListenerSpec(&in.Provision.AdditionalListeners[i], &out.AdditionalListeners[i], s); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Convert BackendPools
+		if len(in.Provision.BackendPools) > 0 {
+			out.BackendPools = make([]VPCLoadBalancerBackendPoolSpec, len(in.Provision.BackendPools))
+			for i := range in.Provision.BackendPools {
+				if err := Convert_v1beta3_VPCLoadBalancerBackendPoolSpec_To_v1beta2_VPCLoadBalancerBackendPoolSpec(&in.Provision.BackendPools[i], &out.BackendPools[i], s); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Convert SecurityGroups
+		if len(in.Provision.SecurityGroups) > 0 {
+			out.SecurityGroups = make([]VPCResource, len(in.Provision.SecurityGroups))
+			for i, sg := range in.Provision.SecurityGroups {
+				if sg.ID != "" {
+					out.SecurityGroups[i].ID = ptr.To(sg.ID)
+				}
+				if sg.Name != "" {
+					out.SecurityGroups[i].Name = ptr.To(sg.Name)
+				}
+			}
+		}
+
+		// Convert Subnets
+		if len(in.Provision.Subnets) > 0 {
+			out.Subnets = make([]VPCResource, len(in.Provision.Subnets))
+			for i, subnet := range in.Provision.Subnets {
+				if subnet.ID != "" {
+					out.Subnets[i].ID = ptr.To(subnet.ID)
+				}
+				if subnet.Name != "" {
+					out.Subnets[i].Name = ptr.To(subnet.Name)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta2_IBMPowerVSResourceReference_To_v1beta3_ResourceIdentifier converts IBMPowerVSResourceReference to ResourceIdentifier.
+func Convert_v1beta2_IBMPowerVSResourceReference_To_v1beta3_ResourceIdentifier(in *IBMPowerVSResourceReference, out *infrav1.ResourceIdentifier, s apimachineryconversion.Scope) error {
+	if in.ID != nil {
+		out.ID = *in.ID
+	}
+	if in.Name != nil {
+		out.Name = *in.Name
+	}
+	// RegEx field is not supported in v1beta3
+	return nil
+}
+
+// Convert_v1beta3_ResourceIdentifier_To_v1beta2_IBMPowerVSResourceReference converts ResourceIdentifier to IBMPowerVSResourceReference.
+func Convert_v1beta3_ResourceIdentifier_To_v1beta2_IBMPowerVSResourceReference(in *infrav1.ResourceIdentifier, out *IBMPowerVSResourceReference, s apimachineryconversion.Scope) error {
+	if in.ID != "" {
+		out.ID = ptr.To(in.ID)
+	} else {
+		out.ID = nil
+	}
+	if in.Name != "" {
+		out.Name = ptr.To(in.Name)
+	} else {
+		out.Name = nil
+	}
 	return nil
 }
