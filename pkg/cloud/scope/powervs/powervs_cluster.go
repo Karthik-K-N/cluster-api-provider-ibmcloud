@@ -91,6 +91,16 @@ type ClientOptions struct {
 	Debug           bool
 }
 
+// COSClientOptions carries the parameters needed to construct a COS client.
+// These are kept separate from ClientOptions because they depend on runtime
+// Status fields (COS instance ID, bucket region) that are not known at scope
+// construction time for non-machine scopes.
+type COSClientOptions struct {
+	InstanceID      string
+	BucketRegion    string
+	ServiceEndpoint []endpoints.ServiceEndpoint
+}
+
 // ClusterScopeParams defines the input parameters used to create a new ClusterScope.
 type ClusterScopeParams struct {
 	Client            client.Client
@@ -128,6 +138,7 @@ type ClientBuilder interface {
 	GetTransitGatewayClient(ctx context.Context, options ClientOptions) (transitgateway.TransitGateway, error)
 	GetResourceControllerClient(ctx context.Context, options ClientOptions) (resourcecontroller.ResourceController, error)
 	GetResourceManagerClient(ctx context.Context, options ClientOptions) (resourcemanager.ResourceManager, error)
+	GetCOSClient(ctx context.Context, options COSClientOptions) (cos.Cos, error)
 }
 
 // ProdClientBuilder is the production implementation of the ClientBuilder interface.
@@ -225,6 +236,39 @@ func (b ProdClientBuilder) GetResourceManagerClient(ctx context.Context, opts Cl
 	}
 
 	return resourcemanager.NewService(rmOptions)
+}
+
+// GetCOSClient constructs a production COS client for the given options.
+func (b ProdClientBuilder) GetCOSClient(ctx context.Context, opts COSClientOptions) (cos.Cos, error) {
+	log := ctrl.LoggerFrom(ctx)
+
+	props, err := authenticator.GetProperties()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch service properties: %w", err)
+	}
+	apiKey := props["APIKEY"]
+	if apiKey == "" {
+		return nil, fmt.Errorf("IBM Cloud API key is not provided, set IBMCLOUD_API_KEY environmental variable")
+	}
+
+	serviceEndpoint := fmt.Sprintf("s3.%s.%s", opts.BucketRegion, cosURLDomain)
+
+	cosServiceEndpoint := endpoints.FetchEndpoints(string(endpoints.COS), opts.ServiceEndpoint)
+	if cosServiceEndpoint != "" {
+		log.V(3).Info("Overriding the default COS endpoint", "cosEndpoint", cosServiceEndpoint)
+		serviceEndpoint = cosServiceEndpoint
+	}
+
+	cosOptions := cos.ServiceOptions{
+		Options: &cosSession.Options{
+			Config: aws.Config{
+				Endpoint: ptr.To(serviceEndpoint),
+				Region:   ptr.To(opts.BucketRegion),
+			},
+		},
+	}
+
+	return cos.NewService(cosOptions, apiKey, opts.InstanceID)
 }
 
 // NewPowerVSClusterScope creates a new ClusterScope from the supplied parameters.
@@ -2348,7 +2392,7 @@ func (s *ClusterScope) ReconcileCOSInstance(ctx context.Context) error {
 	}
 
 	// 4. Setup the COS Client now that we have a guaranteed active instance ID
-	if err := s.setupCOSClient(instanceID, cosSpec.BucketRegion); err != nil {
+	if err := s.setupCOSClient(ctx, instanceID, cosSpec.BucketRegion); err != nil {
 		return fmt.Errorf("failed to configure COS client: %w", err)
 	}
 
@@ -2435,43 +2479,20 @@ func (s *ClusterScope) reconcileCOSProvision(ctx context.Context, name string) (
 	return newInstance, nil
 }
 
-// setupCOSClient authenticates and builds the SDK wrapper for bucket manipulation.
-func (s *ClusterScope) setupCOSClient(instanceID, bucketRegion string) error {
+// setupCOSClient builds the COS client for bucket manipulation.
+func (s *ClusterScope) setupCOSClient(ctx context.Context, instanceID, bucketRegion string) error {
 	// Skip if already initialized during a previous run in this reconciliation loop
 	if s.COSClient != nil {
 		return nil
 	}
 
-	props, err := authenticator.GetProperties()
+	cosClient, err := ProdClientBuilder{}.GetCOSClient(ctx, COSClientOptions{
+		InstanceID:      instanceID,
+		BucketRegion:    bucketRegion,
+		ServiceEndpoint: s.ServiceEndpoint,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to get authenticator properties: %w", err)
-	}
-
-	apiKey, ok := props["APIKEY"]
-	if !ok {
-		return fmt.Errorf("IBM Cloud API key is not provided, set IBMCLOUD_API_KEY environmental variable")
-	}
-
-	serviceEndpoint := fmt.Sprintf("s3.%s.%s", bucketRegion, cosURLDomain)
-
-	// Check for a custom endpoint override
-	cosServiceEndpoint := endpoints.FetchEndpoints(string(endpoints.COS), s.ServiceEndpoint)
-	if cosServiceEndpoint != "" {
-		serviceEndpoint = cosServiceEndpoint
-	}
-
-	cosOptions := cos.ServiceOptions{
-		Options: &cosSession.Options{
-			Config: aws.Config{
-				Endpoint: ptr.To(serviceEndpoint),
-				Region:   ptr.To(bucketRegion),
-			},
-		},
-	}
-
-	cosClient, err := cos.NewServiceWrapper(cosOptions, apiKey, instanceID)
-	if err != nil {
-		return fmt.Errorf("failed to create COS client wrapper: %w", err)
+		return fmt.Errorf("failed to create COS client: %w", err)
 	}
 
 	s.COSClient = cosClient
