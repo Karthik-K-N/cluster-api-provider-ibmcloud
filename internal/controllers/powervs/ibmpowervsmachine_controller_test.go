@@ -30,8 +30,8 @@ import (
 	"github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -54,9 +54,9 @@ import (
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-ibmcloud/api/powervs/v1beta3"
 	powervsscope "sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/scope/powervs"
+	cosmock "sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/cos/mock"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/powervs"
 	"sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/powervs/mock"
-	cosmock "sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/cos/mock"
 	mockRC "sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/resourcecontroller/mock"
 	mockVPC "sigs.k8s.io/cluster-api-provider-ibmcloud/pkg/cloud/services/vpc/mock"
 
@@ -279,10 +279,10 @@ func TestIBMPowerVSMachineReconciler_Reconcile(t *testing.T) {
 
 func TestIBMPowerVSMachineReconciler_reconcileDelete(t *testing.T) {
 	testCases := []struct {
-		name          string
-		machine       *infrav1.IBMPowerVSMachine
-		expect        func(m *mock.MockPowerVS)
-		expectedError string
+		name           string
+		machine        *infrav1.IBMPowerVSMachine
+		expect         func(m *mock.MockPowerVS)
+		expectedError  string
 		checkFinalizer bool
 	}{
 		{
@@ -293,7 +293,7 @@ func TestIBMPowerVSMachineReconciler_reconcileDelete(t *testing.T) {
 					Finalizers: []string{infrav1.IBMPowerVSMachineFinalizer},
 				},
 			},
-			expect: func(_ *mock.MockPowerVS) {},
+			expect:         func(_ *mock.MockPowerVS) {},
 			checkFinalizer: false,
 		},
 		{
@@ -310,7 +310,7 @@ func TestIBMPowerVSMachineReconciler_reconcileDelete(t *testing.T) {
 			expect: func(m *mock.MockPowerVS) {
 				m.EXPECT().DeleteInstance(gomock.Any(), "powervs-instance-id").Return(errors.New("could not delete PowerVS instance"))
 			},
-			expectedError: "could not delete PowerVS instance",
+			expectedError:  "could not delete PowerVS instance",
 			checkFinalizer: true,
 		},
 		{
@@ -352,11 +352,11 @@ func TestIBMPowerVSMachineReconciler_reconcileDelete(t *testing.T) {
 			}
 
 			scope := &powervsscope.MachineScope{
-				Client:           fakeClient,
-				IBMPowerVSClient: mockPVS,
+				Client:            fakeClient,
+				IBMPowerVSClient:  mockPVS,
 				IBMPowerVSMachine: tc.machine,
 				IBMPowerVSCluster: &infrav1.IBMPowerVSCluster{},
-				DHCPIPCacheStore: cache.NewTTLStore(powervs.CacheKeyFunc, powervs.CacheTTL),
+				DHCPIPCacheStore:  cache.NewTTLStore(powervs.CacheKeyFunc, powervs.CacheTTL),
 				Machine:           machine,
 			}
 
@@ -381,16 +381,16 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal(t *testing.T) {
 	options.ProviderIDFormat = "v2"
 
 	testCases := []struct {
-		name          string
-		machine       *infrav1.IBMPowerVSMachine
-		cluster       *clusterv1.Cluster
-		pvsCluster    *infrav1.IBMPowerVSCluster
-		image         *infrav1.IBMPowerVSImage
-		ownerMachine  *clusterv1.Machine
-		expect        func(m *mock.MockPowerVS, v *mockVPC.MockVpc)
-		expectedError string
+		name            string
+		machine         *infrav1.IBMPowerVSMachine
+		cluster         *clusterv1.Cluster
+		pvsCluster      *infrav1.IBMPowerVSCluster
+		image           *infrav1.IBMPowerVSImage
+		ownerMachine    *clusterv1.Machine
+		expect          func(m *mock.MockPowerVS, v *mockVPC.MockVpc)
+		expectedError   string
 		expectedRequeue bool
-		checkCondition func(g *WithT, m *infrav1.IBMPowerVSMachine)
+		checkCondition  func(g *WithT, m *infrav1.IBMPowerVSMachine)
 	}{
 		{
 			name:    "Should requeue if Cluster infrastructure status is not ready",
@@ -415,7 +415,7 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal(t *testing.T) {
 					},
 				},
 			},
-			image: &infrav1.IBMPowerVSImage{},
+			image:           &infrav1.IBMPowerVSImage{},
 			expectedRequeue: true,
 			checkCondition: func(g *WithT, m *infrav1.IBMPowerVSMachine) {
 				expectConditions(g, m, []conditionAssertion{{infrav1.InstanceReadyCondition, corev1.ConditionFalse, clusterv1.ConditionSeverityInfo, infrav1.InstanceWaitingForImageReason}})
@@ -655,9 +655,9 @@ func TestPatchIBMPowerVSMachine(t *testing.T) {
 
 func TestIBMPowerVSMachineReconciler_handleLoadBalancerPoolMemberConfiguration(t *testing.T) {
 	testCases := []struct {
-		name          string
-		expect        func(v *mockVPC.MockVpc)
-		expectedError string
+		name            string
+		expect          func(v *mockVPC.MockVpc)
+		expectedError   string
 		expectedRequeue bool
 	}{
 		{
@@ -903,9 +903,7 @@ func newMachine() *clusterv1.Machine {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// reconcileDelete — additional branches
-// ---------------------------------------------------------------------------
+// reconcileDelete — additional branches.
 
 func TestIBMPowerVSMachineReconciler_reconcileDelete_ignitionError(t *testing.T) {
 	t.Run("Should fail when DeleteMachineIgnition returns error", func(t *testing.T) {
@@ -963,9 +961,7 @@ func TestIBMPowerVSMachineReconciler_reconcileDelete_ignitionError(t *testing.T)
 	})
 }
 
-// ---------------------------------------------------------------------------
-// reconcileNormal — full coverage of remaining branches
-// ---------------------------------------------------------------------------
+// reconcileNormal — full coverage of remaining branches.
 
 func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testing.T) {
 	options.ProviderIDFormat = "v2"
@@ -1056,8 +1052,8 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 		},
 		// ── GetInstance error ────────────────────────────────────────────────
 		{
-			name:    "error when GetInstance fails after CreateMachine",
-			machine: newIBMPowerVSMachine(),
+			name:         "error when GetInstance fails after CreateMachine",
+			machine:      newIBMPowerVSMachine(),
 			ownerMachine: newMachine(),
 			image: &infrav1.IBMPowerVSImage{
 				Status: infrav1.IBMPowerVSImageStatus{ImageState: infrav1.PowerVSImageStateACTIVE},
@@ -1071,8 +1067,8 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 		},
 		// ── SetProviderID error ──────────────────────────────────────────────
 		{
-			name:    "error when SetProviderID fails",
-			machine: newIBMPowerVSMachine(),
+			name:         "error when SetProviderID fails",
+			machine:      newIBMPowerVSMachine(),
 			ownerMachine: newMachine(),
 			image: &infrav1.IBMPowerVSImage{
 				Status: infrav1.IBMPowerVSImageStatus{ImageState: infrav1.PowerVSImageStateACTIVE},
@@ -1083,15 +1079,15 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 				m.EXPECT().GetInstance(gomock.Any(), "inst-id").Return(activeInstance(), nil)
 			},
 			// Override ProviderIDFormat to something invalid so SetProviderID fails
-			checkScope: func(_ *WithT, scope *powervsscope.MachineScope) {
+			checkScope: func(_ *WithT, _ *powervsscope.MachineScope) {
 				options.ProviderIDFormat = "v1" // invalid → SetProviderID returns error
 			},
 			expectedError: "failed to set provider ID",
 		},
 		// ── SHUTOFF state ────────────────────────────────────────────────────
 		{
-			name:    "returns not-ready when instance is SHUTOFF",
-			machine: newIBMPowerVSMachine(),
+			name:         "returns not-ready when instance is SHUTOFF",
+			machine:      newIBMPowerVSMachine(),
 			ownerMachine: newMachine(),
 			image: &infrav1.IBMPowerVSImage{
 				Status: infrav1.IBMPowerVSImageStatus{ImageState: infrav1.PowerVSImageStateACTIVE},
@@ -1115,8 +1111,8 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 		},
 		// ── ACTIVE — no VPC region (skip LB) ─────────────────────────────────
 		{
-			name:    "marks ready and skips LB when VPC region is not set",
-			machine: newIBMPowerVSMachine(),
+			name:         "marks ready and skips LB when VPC region is not set",
+			machine:      newIBMPowerVSMachine(),
 			ownerMachine: newMachine(),
 			image: &infrav1.IBMPowerVSImage{
 				Status: infrav1.IBMPowerVSImageStatus{ImageState: infrav1.PowerVSImageStateACTIVE},
@@ -1139,8 +1135,8 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 		},
 		// ── ACTIVE — VPC set but no internal IP yet ───────────────────────────
 		{
-			name:    "waits for network address when internal IP is empty",
-			machine: newIBMPowerVSMachine(),
+			name:         "waits for network address when internal IP is empty",
+			machine:      newIBMPowerVSMachine(),
 			ownerMachine: newMachine(),
 			image: &infrav1.IBMPowerVSImage{
 				Status: infrav1.IBMPowerVSImageStatus{ImageState: infrav1.PowerVSImageStateACTIVE},
@@ -1173,8 +1169,8 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 		},
 		// ── ERROR state — nil fault ───────────────────────────────────────────
 		{
-			name:    "returns not-ready with unknown error when instance is in ERROR with nil fault",
-			machine: newIBMPowerVSMachine(),
+			name:         "returns not-ready with unknown error when instance is in ERROR with nil fault",
+			machine:      newIBMPowerVSMachine(),
 			ownerMachine: newMachine(),
 			image: &infrav1.IBMPowerVSImage{
 				Status: infrav1.IBMPowerVSImageStatus{ImageState: infrav1.PowerVSImageStateACTIVE},
@@ -1201,8 +1197,8 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 		},
 		// ── ERROR state — with fault details ─────────────────────────────────
 		{
-			name:    "returns not-ready with fault details when instance is in ERROR with fault",
-			machine: newIBMPowerVSMachine(),
+			name:         "returns not-ready with fault details when instance is in ERROR with fault",
+			machine:      newIBMPowerVSMachine(),
 			ownerMachine: newMachine(),
 			image: &infrav1.IBMPowerVSImage{
 				Status: infrav1.IBMPowerVSImageStatus{ImageState: infrav1.PowerVSImageStateACTIVE},
@@ -1229,8 +1225,8 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 		},
 		// ── default / UNKNOWN state ───────────────────────────────────────────
 		{
-			name:    "requeues with unknown condition for undefined instance state",
-			machine: newIBMPowerVSMachine(),
+			name:         "requeues with unknown condition for undefined instance state",
+			machine:      newIBMPowerVSMachine(),
 			ownerMachine: newMachine(),
 			image: &infrav1.IBMPowerVSImage{
 				Status: infrav1.IBMPowerVSImageStatus{ImageState: infrav1.PowerVSImageStateACTIVE},
@@ -1255,8 +1251,8 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 		},
 		// ── LB config error path ──────────────────────────────────────────────
 		{
-			name:    "marks LB config failed condition when handleLoadBalancer returns error",
-			machine: newIBMPowerVSMachine(),
+			name:         "marks LB config failed condition when handleLoadBalancer returns error",
+			machine:      newIBMPowerVSMachine(),
 			ownerMachine: newMachine(),
 			image: &infrav1.IBMPowerVSImage{
 				Status: infrav1.IBMPowerVSImageStatus{ImageState: infrav1.PowerVSImageStateACTIVE},
@@ -1265,7 +1261,7 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 				Spec: infrav1.IBMPowerVSClusterSpec{
 					VPC: infrav1.VPCSource{Region: "us-south"},
 					LoadBalancers: []infrav1.LoadBalancerSource{{
-						Type: infrav1.SourceTypeProvision,
+						Type:      infrav1.SourceTypeProvision,
 						Provision: infrav1.LoadBalancerProvision{Name: "test-lb"},
 					}},
 				},
@@ -1289,8 +1285,8 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 		},
 		// ── Full happy path: ACTIVE + VPC + LB success ───────────────────────
 		{
-			name:    "marks ready when instance is ACTIVE and LB member is created successfully",
-			machine: newIBMPowerVSMachine(),
+			name:         "marks ready when instance is ACTIVE and LB member is created successfully",
+			machine:      newIBMPowerVSMachine(),
 			ownerMachine: newMachine(),
 			image: &infrav1.IBMPowerVSImage{
 				Status: infrav1.IBMPowerVSImageStatus{ImageState: infrav1.PowerVSImageStateACTIVE},
@@ -1299,7 +1295,7 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 				Spec: infrav1.IBMPowerVSClusterSpec{
 					VPC: infrav1.VPCSource{Region: "us-south"},
 					LoadBalancers: []infrav1.LoadBalancerSource{{
-						Type: infrav1.SourceTypeProvision,
+						Type:      infrav1.SourceTypeProvision,
 						Provision: infrav1.LoadBalancerProvision{Name: "test-lb"},
 					}},
 				},
@@ -1414,9 +1410,7 @@ func TestIBMPowerVSMachineReconciler_reconcileNormal_additionalBranches(t *testi
 	}
 }
 
-// ---------------------------------------------------------------------------
-// handleLoadBalancerPoolMemberConfiguration — missing branches
-// ---------------------------------------------------------------------------
+// handleLoadBalancerPoolMemberConfiguration — missing branches.
 
 func TestIBMPowerVSMachineReconciler_handleLB_additionalBranches(t *testing.T) {
 	t.Run("requeues when pool member is created but provisioning is not active", func(t *testing.T) {
@@ -1454,7 +1448,7 @@ func TestIBMPowerVSMachineReconciler_handleLB_additionalBranches(t *testing.T) {
 			IBMPowerVSCluster: &infrav1.IBMPowerVSCluster{
 				Spec: infrav1.IBMPowerVSClusterSpec{
 					LoadBalancers: []infrav1.LoadBalancerSource{{
-						Type: infrav1.SourceTypeProvision,
+						Type:      infrav1.SourceTypeProvision,
 						Provision: infrav1.LoadBalancerProvision{Name: "test-lb"},
 					}},
 				},
@@ -1505,7 +1499,7 @@ func TestIBMPowerVSMachineReconciler_handleLB_additionalBranches(t *testing.T) {
 			IBMPowerVSCluster: &infrav1.IBMPowerVSCluster{
 				Spec: infrav1.IBMPowerVSClusterSpec{
 					LoadBalancers: []infrav1.LoadBalancerSource{{
-						Type: infrav1.SourceTypeProvision,
+						Type:      infrav1.SourceTypeProvision,
 						Provision: infrav1.LoadBalancerProvision{Name: "test-lb"},
 					}},
 				},
@@ -1522,9 +1516,7 @@ func TestIBMPowerVSMachineReconciler_handleLB_additionalBranches(t *testing.T) {
 	})
 }
 
-// ---------------------------------------------------------------------------
-// patchIBMPowerVSMachine — Provisioned=true branch (InstanceReadyCondition absent)
-// ---------------------------------------------------------------------------
+// patchIBMPowerVSMachine — Provisioned=true branch (InstanceReadyCondition absent).
 
 func TestPatchIBMPowerVSMachine_provisioned(t *testing.T) {
 	t.Run("sets InstanceReadyCondition=True when Provisioned is true and condition absent", func(t *testing.T) {
@@ -1551,9 +1543,7 @@ func TestPatchIBMPowerVSMachine_provisioned(t *testing.T) {
 	})
 }
 
-// ---------------------------------------------------------------------------
-// ibmPowerVSClusterToIBMPowerVSMachines — remaining branches
-// ---------------------------------------------------------------------------
+// ibmPowerVSClusterToIBMPowerVSMachines — remaining branches.
 
 func TestIBMPowerVSMachineReconciler_ibmPowerVSClusterToIBMPowerVSMachines_additionalBranches(t *testing.T) {
 	t.Run("returns nil when object is not an IBMPowerVSCluster", func(t *testing.T) {
@@ -1623,10 +1613,8 @@ func TestIBMPowerVSMachineReconciler_ibmPowerVSClusterToIBMPowerVSMachines_addit
 	})
 }
 
-// ---------------------------------------------------------------------------
 // errCacheStore — a cache.Store that always returns an error on Delete.
 // Used to exercise the non-fatal DHCP cache-delete error path.
-// ---------------------------------------------------------------------------
 
 type errCacheStore struct{ cache.Store }
 
@@ -1634,12 +1622,10 @@ func (e errCacheStore) Delete(_ interface{}) error {
 	return errors.New("cache delete failed")
 }
 
-// ---------------------------------------------------------------------------
-// TestIBMPowerVSMachineReconciler_Reconcile_fakeclient
-// Covers the Reconcile branches that are unreachable via testEnv
-// (non-NotFound Get error, machine==nil, InfraRef not defined, paused,
-//  IBMPowerVSCluster not found) using a plain fake.Client.
-// ---------------------------------------------------------------------------
+// TestIBMPowerVSMachineReconciler_Reconcile_fakeclient covers the Reconcile
+// branches that are unreachable via testEnv (non-NotFound Get error,
+// machine==nil, InfraRef not defined, paused, IBMPowerVSCluster not found)
+// using a plain fake.Client.
 
 func TestIBMPowerVSMachineReconciler_Reconcile_fakeclient(t *testing.T) {
 	t.Run("returns error when Get returns non-NotFound error", func(t *testing.T) {
@@ -1687,8 +1673,8 @@ func TestIBMPowerVSMachineReconciler_Reconcile_fakeclient(t *testing.T) {
 		}
 		pvsMachine := &infrav1.IBMPowerVSMachine{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-machine",
-				Namespace: "default",
+				Name:       "test-machine",
+				Namespace:  "default",
 				Finalizers: []string{infrav1.IBMPowerVSMachineFinalizer},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion: clusterv1.GroupVersion.String(),
@@ -1726,10 +1712,10 @@ func TestIBMPowerVSMachineReconciler_Reconcile_fakeclient(t *testing.T) {
 		}
 		pvsMachine := &infrav1.IBMPowerVSMachine{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-machine",
-				Namespace: "default",
+				Name:       "test-machine",
+				Namespace:  "default",
 				Finalizers: []string{infrav1.IBMPowerVSMachineFinalizer},
-				Labels:    map[string]string{clusterv1.ClusterNameLabel: "test-cluster"},
+				Labels:     map[string]string{clusterv1.ClusterNameLabel: "test-cluster"},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion: clusterv1.GroupVersion.String(),
 					Kind:       "Machine",
@@ -1772,10 +1758,10 @@ func TestIBMPowerVSMachineReconciler_Reconcile_fakeclient(t *testing.T) {
 		}
 		pvsMachine := &infrav1.IBMPowerVSMachine{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-machine",
-				Namespace: "default",
+				Name:       "test-machine",
+				Namespace:  "default",
 				Finalizers: []string{infrav1.IBMPowerVSMachineFinalizer},
-				Labels:    map[string]string{clusterv1.ClusterNameLabel: "test-cluster"},
+				Labels:     map[string]string{clusterv1.ClusterNameLabel: "test-cluster"},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion: clusterv1.GroupVersion.String(),
 					Kind:       "Machine",
@@ -1820,10 +1806,10 @@ func TestIBMPowerVSMachineReconciler_Reconcile_fakeclient(t *testing.T) {
 		}
 		pvsMachine := &infrav1.IBMPowerVSMachine{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-machine",
-				Namespace: "default",
+				Name:       "test-machine",
+				Namespace:  "default",
 				Finalizers: []string{infrav1.IBMPowerVSMachineFinalizer},
-				Labels:    map[string]string{clusterv1.ClusterNameLabel: "test-cluster"},
+				Labels:     map[string]string{clusterv1.ClusterNameLabel: "test-cluster"},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion: clusterv1.GroupVersion.String(),
 					Kind:       "Machine",
@@ -1859,9 +1845,7 @@ func TestIBMPowerVSMachineReconciler_Reconcile_fakeclient(t *testing.T) {
 	})
 }
 
-// ---------------------------------------------------------------------------
-// reconcileDelete — DHCP cache store error path (non-fatal, line 250)
-// ---------------------------------------------------------------------------
+// reconcileDelete — DHCP cache store error path (non-fatal, line 250).
 
 func TestIBMPowerVSMachineReconciler_reconcileDelete_dhcpCacheError(t *testing.T) {
 	t.Run("logs but does not fail when DHCPIPCacheStore.Delete returns error", func(t *testing.T) {
@@ -1904,9 +1888,7 @@ func TestIBMPowerVSMachineReconciler_reconcileDelete_dhcpCacheError(t *testing.T
 	})
 }
 
-// ---------------------------------------------------------------------------
-// ibmPowerVSClusterToIBMPowerVSMachines — remaining error branches
-// ---------------------------------------------------------------------------
+// ibmPowerVSClusterToIBMPowerVSMachines — remaining error branches.
 
 func TestIBMPowerVSMachineReconciler_ibmPowerVSClusterToIBMPowerVSMachines_errorBranches(t *testing.T) {
 	t.Run("returns empty when GetOwnerCluster returns non-NotFound error", func(t *testing.T) {
@@ -1984,17 +1966,13 @@ func TestIBMPowerVSMachineReconciler_ibmPowerVSClusterToIBMPowerVSMachines_error
 var _ = schema.GroupResource{}
 var _ = apierrors.IsNotFound
 
-// ---------------------------------------------------------------------------
-// TestIBMPowerVSMachineReconciler_Reconcile_withScope
-//
-// Covers the Reconcile branches that require a real testEnv (so that
-// EnsurePausedCondition can patch the IBMPowerVSMachine) and/or a successful
-// NewMachineScope call — i.e., the bottom half of Reconcile (lines 158–210).
-//
-// Pattern mirrors the IBMPowerVSImage controller tests: a mockClientBuilder
-// (already defined in ibmpowervsimage_controller_test.go in the same package)
-// injects a mock ResourceController so resolveWorkspace succeeds.
-// ---------------------------------------------------------------------------
+// TestIBMPowerVSMachineReconciler_Reconcile_withScope covers the Reconcile
+// branches that require a real testEnv (so that EnsurePausedCondition can patch
+// the IBMPowerVSMachine) and/or a successful NewMachineScope call — i.e., the
+// bottom half of Reconcile (lines 158–210). Pattern mirrors the IBMPowerVSImage
+// controller tests: a mockClientBuilder (already defined in
+// ibmpowervsimage_controller_test.go in the same package) injects a mock
+// ResourceController so resolveWorkspace succeeds.
 
 // reconcileTestEnvSetup creates the common set of Kubernetes objects needed
 // for the "bottom half" of Reconcile (past EnsurePausedCondition) in testEnv.
@@ -2066,9 +2044,9 @@ func reconcileTestEnvSetup(
 
 	pvsMachine = &infrav1.IBMPowerVSMachine{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pvm",
-			Namespace: ns,
-			Labels:    map[string]string{clusterv1.ClusterNameLabel: "test-cluster"},
+			Name:       "test-pvm",
+			Namespace:  ns,
+			Labels:     map[string]string{clusterv1.ClusterNameLabel: "test-cluster"},
 			Finalizers: []string{infrav1.IBMPowerVSMachineFinalizer},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion: clusterv1.GroupVersion.String(),

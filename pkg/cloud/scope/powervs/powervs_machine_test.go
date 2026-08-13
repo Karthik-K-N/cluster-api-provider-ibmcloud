@@ -56,10 +56,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const (
-	testListenerSelector = "listener-selector"
-)
-
 func newPowerVSMachine(clusterName, machineName string, imageRef *string, networkRef *string, isID bool) *infrav1.IBMPowerVSMachine {
 	var image infrav1.IBMPowerVSMachineImage
 	network := infrav1.ResourceIdentifier{}
@@ -333,7 +329,6 @@ func TestNewPowerVSMachineScope(t *testing.T) {
 	})
 }
 
-
 func TestResolveWorkspace(t *testing.T) {
 	const (
 		wsID     = "ws-guid"
@@ -572,16 +567,15 @@ func TestResolveWorkspace(t *testing.T) {
 	})
 }
 
-
 func TestGetWorkspaceID(t *testing.T) {
 	testCases := []struct {
-		name               string
+		name                string
 		expectedWorkspaceID string
-		expectedError      error
-		machineScope       MachineScope
+		expectedError       error
+		machineScope        MachineScope
 	}{
 		{
-			name:               "returns workspace ID from cluster status",
+			name:                "returns workspace ID from cluster status",
 			expectedWorkspaceID: "service-instance-0",
 			machineScope: MachineScope{
 				IBMPowerVSMachine: &infrav1.IBMPowerVSMachine{
@@ -597,7 +591,7 @@ func TestGetWorkspaceID(t *testing.T) {
 			},
 		},
 		{
-			name:               "returns workspace ID from cluster status when machine spec is empty",
+			name:                "returns workspace ID from cluster status when machine spec is empty",
 			expectedWorkspaceID: "service-instance-1",
 			machineScope: MachineScope{
 				IBMPowerVSMachine: &infrav1.IBMPowerVSMachine{
@@ -613,7 +607,7 @@ func TestGetWorkspaceID(t *testing.T) {
 			},
 		},
 		{
-			name:               "cluster status takes precedence over cluster spec",
+			name:                "cluster status takes precedence over cluster spec",
 			expectedWorkspaceID: "service-instance-0",
 			machineScope: MachineScope{
 				IBMPowerVSMachine: &infrav1.IBMPowerVSMachine{
@@ -715,7 +709,6 @@ func TestGetWorkspaceID(t *testing.T) {
 	})
 }
 
-
 func TestConfigurationError(t *testing.T) {
 	t.Run("Error returns configured message", func(t *testing.T) {
 		g := NewWithT(t)
@@ -732,7 +725,6 @@ func TestConfigurationError(t *testing.T) {
 		g.Expect(confErr.Error()).To(Equal(msg))
 	})
 }
-
 
 func TestSetReady(t *testing.T) {
 	t.Run("sets machine status to ready", func(t *testing.T) {
@@ -763,7 +755,6 @@ func TestSetNotReady(t *testing.T) {
 		g.Expect(scope.IsReady()).To(BeFalse())
 	})
 }
-
 
 func TestGetRegion(t *testing.T) {
 	testCases := []struct {
@@ -832,7 +823,6 @@ func TestSetRegion(t *testing.T) {
 	}
 }
 
-
 func TestGetZone(t *testing.T) {
 	testCases := []struct {
 		name         string
@@ -900,7 +890,6 @@ func TestSetZone(t *testing.T) {
 	}
 }
 
-
 func TestGetInstanceState(t *testing.T) {
 	t.Run("returns state set via SetInstanceState", func(t *testing.T) {
 		g := NewWithT(t)
@@ -913,7 +902,6 @@ func TestGetInstanceState(t *testing.T) {
 		g.Expect(scope.GetInstanceState()).To(Equal(infrav1.PowerVSInstanceState("ready")))
 	})
 }
-
 
 func TestGetIgnitionVersion(t *testing.T) {
 	testCases := []struct {
@@ -948,7 +936,6 @@ func TestGetIgnitionVersion(t *testing.T) {
 		})
 	}
 }
-
 
 func TestBootstrapDataKey(t *testing.T) {
 	testCases := []struct {
@@ -988,7 +975,6 @@ func TestBootstrapDataKey(t *testing.T) {
 		})
 	}
 }
-
 
 func TestGetNetworkID(t *testing.T) {
 	var (
@@ -1053,7 +1039,6 @@ func TestGetNetworkID(t *testing.T) {
 	})
 }
 
-
 func TestGetMachineInternalIP(t *testing.T) {
 	t.Run("returns internal IP when set", func(t *testing.T) {
 		g := NewWithT(t)
@@ -1091,7 +1076,6 @@ func TestGetMachineInternalIP(t *testing.T) {
 		g.Expect(scope.GetMachineInternalIP()).To(BeEmpty())
 	})
 }
-
 
 func TestSetProviderID(t *testing.T) {
 	providerID := "foo-provider-id"
@@ -1146,7 +1130,6 @@ func TestSetProviderID(t *testing.T) {
 		g.Expect(err).To(BeNil())
 	})
 }
-
 
 func TestNewMachineScopeCOSClientBuild(t *testing.T) {
 	t.Run("error when GetCOSClient fails during initClients", func(t *testing.T) {
@@ -1207,7 +1190,6 @@ func (e errCOSBuilder) GetCOSClient(_ context.Context, _ COSClientOptions) (cos.
 	return nil, errors.New("cos client error")
 }
 
-
 func TestSetInstanceID(t *testing.T) {
 	testCases := []struct {
 		name               string
@@ -1239,7 +1221,6 @@ func TestSetInstanceID(t *testing.T) {
 	}
 }
 
-
 func TestSetHealth(t *testing.T) {
 	t.Run("sets health status when health is non-nil", func(t *testing.T) {
 		g := NewWithT(t)
@@ -1263,7 +1244,6 @@ func TestSetHealth(t *testing.T) {
 		g.Expect(scope.IBMPowerVSMachine.Status.Health).To(BeEmpty())
 	})
 }
-
 
 func TestDeleteMachineIgnition(t *testing.T) {
 	t.Run("skips when COSInstance type is not configured", func(t *testing.T) {
@@ -1291,9 +1271,7 @@ func TestDeleteMachineIgnition(t *testing.T) {
 		err := scope.DeleteMachineIgnition(ctx)
 		g.Expect(err).To(BeNil())
 	})
-
 }
-
 
 func TestResolveUserData(t *testing.T) {
 	t.Run("returns base64-encoded cloud-init data when Ignition is not configured", func(t *testing.T) {
@@ -1322,7 +1300,6 @@ func TestResolveUserData(t *testing.T) {
 	})
 }
 
-
 func TestCreateIgnitionData(t *testing.T) {
 	t.Run("error when user data is empty", func(t *testing.T) {
 		g := NewWithT(t)
@@ -1342,7 +1319,6 @@ func TestCreateIgnitionData(t *testing.T) {
 		g.Expect(err.Error()).To(ContainSubstring("COS bucket name or region is not set in cluster spec"))
 	})
 }
-
 
 func TestGetImageID(t *testing.T) {
 	var (
@@ -1417,7 +1393,6 @@ func TestGetImageID(t *testing.T) {
 		g.Expect(err.Error()).To(ContainSubstring("image reference must contain either an ID or a Name"))
 	})
 }
-
 
 func TestCreateMachine(t *testing.T) {
 	var (
@@ -1738,7 +1713,6 @@ func TestCreateMachineSystemTypeValidation(t *testing.T) {
 	})
 }
 
-
 func TestDeleteMachine(t *testing.T) {
 	var (
 		mockpowervs *mock.MockPowerVS
@@ -1777,7 +1751,6 @@ func TestDeleteMachine(t *testing.T) {
 	})
 }
 
-
 func TestGetIPFromCache(t *testing.T) {
 	t.Run("returns empty string and false when key not in cache", func(t *testing.T) {
 		g := NewWithT(t)
@@ -1788,7 +1761,6 @@ func TestGetIPFromCache(t *testing.T) {
 		g.Expect(ip).To(BeEmpty())
 	})
 }
-
 
 func TestValidateSystemType(t *testing.T) {
 	var (
@@ -1807,7 +1779,7 @@ func TestValidateSystemType(t *testing.T) {
 		g := NewWithT(t)
 		scope := MachineScope{
 			IBMPowerVSMachine: &infrav1.IBMPowerVSMachine{
-				Spec: infrav1.IBMPowerVSMachineSpec{SystemType: ""},
+				Spec:   infrav1.IBMPowerVSMachineSpec{SystemType: ""},
 				Status: infrav1.IBMPowerVSMachineStatus{Zone: "us-south-1"},
 			},
 		}
@@ -2101,8 +2073,8 @@ func TestSetAddresses(t *testing.T) {
 
 func TestCreateVPCLoadBalancerPoolMember(t *testing.T) {
 	var (
-		mockCtrl   *gomock.Controller
-		mockVPC    *vpcmock.MockVpc
+		mockCtrl *gomock.Controller
+		mockVPC  *vpcmock.MockVpc
 	)
 
 	setup := func(t *testing.T) {
@@ -2507,10 +2479,10 @@ func TestGetIPFromDHCPServerAdditionalBranches(t *testing.T) {
 	teardown := func() { mockCtrl.Finish() }
 
 	const (
-		testNetworkID = "net-id"
-		testMACAddr   = "aa:bb:cc:dd:ee:ff"
+		testNetworkID  = "net-id"
+		testMACAddr    = "aa:bb:cc:dd:ee:ff"
 		testServerName = "test-vm"
-		testDHCPSrvID = "dhcp-srv-id"
+		testDHCPSrvID  = "dhcp-srv-id"
 	)
 
 	t.Run("error when instance network attachment not found", func(t *testing.T) {
@@ -2607,12 +2579,12 @@ func TestCreateVPCLoadBalancerPoolMemberSelectorBranches(t *testing.T) {
 	teardown := func() { mockCtrl.Finish() }
 
 	const (
-		selectorLBID       = "lb-id"
-		selectorLBName     = "foo-cluster-lb-public"
-		selectorPoolID     = "pool-id"
-		selectorPoolName   = "pool-name"
-		selectorListenerID = "listener-id"
-		selectorInternalIP = "10.0.0.10"
+		selectorLBID        = "lb-id"
+		selectorLBName      = "foo-cluster-lb-public"
+		selectorPoolID      = "pool-id"
+		selectorPoolName    = "pool-name"
+		selectorListenerID  = "listener-id"
+		selectorInternalIP  = "10.0.0.10"
 		selectorActiveState = "active"
 	)
 
@@ -3048,10 +3020,10 @@ func TestGetIPFromDHCPServerLeaseMACNotFound(t *testing.T) {
 	teardown := func() { mockCtrl.Finish() }
 
 	const (
-		networkID = "net-id"
-		macAddr   = "aa:bb:cc:dd:ee:ff"
+		networkID  = "net-id"
+		macAddr    = "aa:bb:cc:dd:ee:ff"
 		serverName = "test-vm"
-		dhcpSrvID = "dhcp-srv-id"
+		dhcpSrvID  = "dhcp-srv-id"
 	)
 
 	t.Run("error when DHCP lease not found for machine MAC", func(t *testing.T) {
@@ -3089,12 +3061,12 @@ func TestCreateVPCLoadBalancerPoolMemberAdditionalBranches(t *testing.T) {
 	teardown := func() { mockCtrl.Finish() }
 
 	const (
-		lbID      = "lb-id"
-		lbName    = "foo-cluster-lb-public"
-		poolID    = "pool-id"
-		poolName  = "pool-name"
-		listenerID = "listener-id"
-		internalIP = "10.0.0.10"
+		lbID        = "lb-id"
+		lbName      = "foo-cluster-lb-public"
+		poolID      = "pool-id"
+		poolName    = "pool-name"
+		listenerID  = "listener-id"
+		internalIP  = "10.0.0.10"
 		activeState = "active"
 	)
 
@@ -3395,7 +3367,6 @@ func TestIgnitionUserDataCreateIgnitionDataError(t *testing.T) {
 		g.Expect(err.Error()).To(ContainSubstring("failed to create user data object"))
 	})
 }
-
 
 func TestGetRawBootstrapData(t *testing.T) {
 	t.Run("returns bootstrap data when secret and value key exist", func(t *testing.T) {
